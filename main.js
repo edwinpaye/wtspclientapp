@@ -5,9 +5,21 @@ const qrcode = require('qrcode-terminal');
 // const media = MessageMedia.fromFilePath('./path/to/file.jpg');
 // client.sendMessage('123456789@c.us', media);
 
+// const wwebVersion = '2.2409.0';
+
 // Create a new WhatsApp client
 const client = new Client({
-    authStrategy: new LocalAuth()  // Stores session so you don’t need to scan QR code repeatedly
+    authStrategy: new LocalAuth(),  // Stores session so you don’t need to scan QR code repeatedly
+    puppeteer: {
+        // puppeteer args here
+        // headless:false,
+        args: ["--no-sandbox"]
+    },
+    // locking the wweb version
+    // webVersionCache: {
+    //     type: 'remote',
+    //     remotePath: `https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/${wwebVersion}.html`,
+    // },
 });
 
 // Event listener for QR code generation
