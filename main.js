@@ -13,7 +13,8 @@ const client = new Client({
     puppeteer: {
         // puppeteer args here
         // headless:false,
-        // args: ["--no-sandbox"]
+        args: ["--no-sandbox"],
+        // executablePath: '/usr/bin/chromium-browser',
     },
     // locking the wweb version
     // webVersionCache: {
