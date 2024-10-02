@@ -290,3 +290,13 @@ const gracefulShutdown = () => {
         process.exit(0);
     }
 };
+
+const PORT = 3000;
+app.listen(PORT, () => {
+    logger.info(`Server is running on PORT: ${PORT}`);
+});
+
+// Handle shutdown signals (e.g., Ctrl+C)
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
+
