@@ -134,6 +134,10 @@ const startClient = () => {
         //     });
         // });
 
+        // Error handling
+        client.on('auth_failure', (msg) => {
+            logger.error(`Auth failure: ${msg}`);
+        });
 
         // Start the client
         client.initialize();
