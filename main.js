@@ -300,3 +300,27 @@ app.listen(PORT, () => {
 process.on('SIGINT', gracefulShutdown);
 process.on('SIGTERM', gracefulShutdown);
 
+
+
+
+
+// Helper function to send media from memory
+const sendMediaFromMemory = async (chatId, buffer, originalName, res) => {
+    try {
+        // Get the MIME type of the file based on the extension
+        const mimeType = mime.lookup(originalName) || 'application/octet-stream';
+        
+        // Convert the file buffer to base64
+        const base64Media = buffer.toString('base64');
+
+        // Create MessageMedia with the base64 content
+        const messageMedia = new MessageMedia(mimeType, base64Media, originalName);
+
+        // Send the media to the specified chat
+        await client.sendMessage(chatId, messageMedia);
+        res.status(200).json({ success: true, message: `Media sent to ${chatId}` });
+    } catch (err) {
+        console.error('Error sending media:', err);
+        res.status(500).json({ error: `Failed to send media: ${err.message}` });
+    }
+};
