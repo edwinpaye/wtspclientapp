@@ -155,3 +155,15 @@ app.get('/start', (req, res) => {
     logger.info('WhatsApp client started.');
     return res.status(200).send('WhatsApp client started.');
 });
+
+// Endpoint to stop the WhatsApp client
+app.get('/stop', (req, res) => {
+    if (!client) {
+        return res.status(400).send('Client is not running.');
+    }
+
+    client.destroy();
+    client = null;  // Reset the client instance
+    logger.info('WhatsApp client stopped.');
+    return res.status(200).send('WhatsApp client stopped.');
+});
