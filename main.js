@@ -324,3 +324,18 @@ const sendMediaFromMemory = async (chatId, buffer, originalName, res) => {
         res.status(500).json({ error: `Failed to send media: ${err.message}` });
     }
 };
+
+// Endpoint to send media (image, video, document, etc.) from memory
+app.post('/send-media', upload.single('media'), async (req, res) => {
+    const { number } = req.body;
+
+    if (!number || !req.file) {
+        return res.status(400).json({ error: 'Phone number and media file are required.' });
+    }
+
+    const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
+    const mediaBuffer = req.file.buffer;
+    const originalName = req.file.originalname;
+
+    sendMediaFromMemory(chatId, mediaBuffer, originalName, res);
+});
