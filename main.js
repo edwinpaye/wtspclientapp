@@ -167,3 +167,14 @@ app.get('/stop', (req, res) => {
     logger.info('WhatsApp client stopped.');
     return res.status(200).send('WhatsApp client stopped.');
 });
+
+// Endpoint to get QR code (if available)
+app.get('/qr', (req, res) => {
+    const qrImagePath = path.join(__dirname, 'whatsapp-qr.png');
+
+    if (fs.existsSync(qrImagePath)) {
+        res.sendFile(qrImagePath);
+    } else {
+        res.status(404).send('Whatsapp esta generando el Codigo QR.');
+    }
+});
