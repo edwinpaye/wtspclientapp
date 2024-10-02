@@ -178,3 +178,58 @@ app.get('/qr', (req, res) => {
         res.status(404).send('Whatsapp esta generando el Codigo QR.');
     }
 });
+
+// const media = MessageMedia.fromFilePath('./path/to/file.jpg');
+// client.sendMessage('123456789@c.us', media);
+
+// Create a new WhatsApp client
+// const client = new Client({
+//     authStrategy: new LocalAuth(),  // Stores session so you don’t need to scan QR code repeatedly
+//     puppeteer: {
+//         // puppeteer args here
+//         // headless:false,
+//         args: ["--no-sandbox"],
+//         // executablePath: '/usr/bin/chromium-browser',
+//     },
+//     // locking the wweb version
+//     // webVersionCache: {
+//     //     type: 'remote',
+//     //     remotePath: `https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/${wwebVersion}.html`,
+//     // },
+// });
+
+// // Event listener to handle incoming messages
+// client.on('message', message => {
+//     console.log(`Received message: ${message.body}`);
+//     if (message.body === 'ping') {
+//         message.reply('pong');
+//     }
+// });
+
+// Send a message through an API
+// app.post('/send', (req, res) => {
+//     const { number, message } = req.body;
+//     client.sendMessage(`${number}@c.us`, message)
+//         .then(response => res.status(200).send({ success: true, response }))
+//         .catch(error => res.status(500).send({ success: false, error }));
+// });
+app.post('/send', sendMessageLimiter, async (req, res) => {
+    const { number, message } = req.body;
+
+    if (!number || !message) {
+        return res.status(400).json({ error: 'Numero y mensaje son requeridos.' });
+    }
+
+    if (!client || !client.info) {
+        return res.status(400).json({ error: 'El cliente aun no esta listo para enviar mensajes.' });
+    }
+
+    try {
+        const chatId = `${number}@c.us`;
+        await client.sendMessage(chatId, message);
+        res.status(200).json({ success: true, message: `Message sent to ${number}` });
+    } catch (err) {
+        logger.error(`Error sending message: ${err}`);
+        res.status(500).json({ error: 'Error al enviar mensaje.', clientError: err });
+    }
+});
