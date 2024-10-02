@@ -339,3 +339,30 @@ app.post('/send-media', upload.single('media'), async (req, res) => {
 
     sendMediaFromMemory(chatId, mediaBuffer, originalName, res);
 });
+
+
+const sendMultipleMediaFromMemory = async (chatId, files, res) => {
+    try {
+        const promises = files.map((file) => {
+            // Get the MIME type of the file based on the extension
+            const mimeType = mime.lookup(file.originalname) || 'application/octet-stream';
+            
+            // Convert the file buffer to base64
+            const base64Media = file.buffer.toString('base64');
+
+            // Create MessageMedia with the base64 content
+            const messageMedia = new MessageMedia(mimeType, base64Media, file.originalname);
+
+            // Send the media to the specified chat
+            return client.sendMessage(chatId, messageMedia);
+        });
+
+        // Wait for all media to be sent
+        await Promise.all(promises);
+
+        res.status(200).json({ success: true, message: `All media sent to ${chatId}` });
+    } catch (err) {
+        console.error('Error sending media:', err);
+        res.status(500).json({ error: `Failed to send media: ${err.message}` });
+    }
+};
