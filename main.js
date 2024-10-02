@@ -273,3 +273,20 @@ app.get('/resume', (req, res) => {
     logger.info('WhatsApp client resumed.')
     return res.status(200).send('WhatsApp client resumed.');
 });
+
+const gracefulShutdown = () => {
+    logger.info('Shutting down server...');
+    if (client) {
+        client.destroy()
+            .then(() => {
+                logger.info('WhatsApp client stopped.');
+                process.exit(0);
+            })
+            .catch((err) => {
+                logger.error(`Error during client shutdown: ${err.message}`);
+                process.exit(1);
+            });
+    } else {
+        process.exit(0);
+    }
+};
