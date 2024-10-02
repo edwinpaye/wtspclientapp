@@ -366,3 +366,17 @@ const sendMultipleMediaFromMemory = async (chatId, files, res) => {
         res.status(500).json({ error: `Failed to send media: ${err.message}` });
     }
 };
+
+// Endpoint to send multiple media files from memory
+app.post('/send-multiple-media', upload.array('media', 10), async (req, res) => {
+    const { number } = req.body;
+
+    if (!number || !req.files || req.files.length === 0) {
+        return res.status(400).json({ error: 'Phone number and at least one media file are required.' });
+    }
+
+    const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
+    const files = req.files;  // Array of uploaded files
+
+    sendMultipleMediaFromMemory(chatId, files, res);
+});
