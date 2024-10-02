@@ -233,3 +233,23 @@ app.post('/send', sendMessageLimiter, async (req, res) => {
         res.status(500).json({ error: 'Error al enviar mensaje.', clientError: err });
     }
 });
+
+// Endpoint for health check
+app.get('/health', (req, res) => {
+    if (client && client.info && client.info.wid) {
+    // if (!client || !client.info) {
+        return res.status(500).json({
+            status: 'Client is not healthy',
+            uptime: process.uptime(),
+            memoryUsage: process.memoryUsage()
+        });
+    }
+
+    res.status(200).json({
+        status: 'Client is healthy',
+        clientInfo: client.info,
+        uptime: process.uptime(),
+        memoryUsage: process.memoryUsage(),
+        connected: client.info.connected
+    });
+});
