@@ -263,3 +263,13 @@ app.get('/pause', (req, res) => {
     logger.info('WhatsApp client paused.');
     return res.status(200).send('WhatsApp client paused.');
 });
+
+app.get('/resume', (req, res) => {
+    if (!client) {
+        return res.status(400).send('Client is not running.');
+    }
+
+    client.pupPage.open();
+    logger.info('WhatsApp client resumed.')
+    return res.status(200).send('WhatsApp client resumed.');
+});
