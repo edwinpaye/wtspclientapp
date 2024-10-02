@@ -50,3 +50,24 @@ app.use((err, req, res, next) => {
     logger.error('Unhandled Error:', err.stack);
     res.status(500).json({ error: 'Error interno.', message: err.message });
 });
+
+let client;
+
+const startClient = () => {
+
+    try {
+        client = new Client({
+            authStrategy: new LocalAuth(),
+            puppeteer: {
+                // headless: true,
+                args: ["--no-sandbox"],
+            },
+        });
+
+
+        // Start the client
+        client.initialize();
+    } catch (err) {
+        logger.error(`Error initializing WhatsApp client: ${err.message}`);
+    }
+};
