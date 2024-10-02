@@ -80,6 +80,40 @@ const startClient = () => {
             qrcodeTerminal.generate(qr, { small: true });
         });
 
+        client.on('ready', async () => {
+            logger.info('WhatsApp client is ready!');
+            
+            // Optionally delete the QR code after successful login
+            const qrImagePath = path.join(__dirname, 'whatsapp-qr.png');
+            if (fs.existsSync(qrImagePath)) {
+                fs.unlinkSync(qrImagePath);  // Clean up the QR code after authentication
+            }
+
+            let myWhatsAppID = client.info.wid._serialized;
+            logger.info('Your WhatsApp ID is:', myWhatsAppID);
+
+            try {
+                await client.sendMessage(myWhatsAppID, 'Cliente WhatsApp Listo!');
+            } catch (err) {
+                logger.error(`Error sending message to yourself: ${err.message}`);
+            }
+            // const webhookUrl = 'https://gisul.com/webhook';
+            // fetch(webhookUrl, {
+            //     method: 'POST',
+            //     headers: { 'Content-Type': 'application/json' },
+            //     body: JSON.stringify({
+            //         id: message.id._serialized,
+            //         from: message.from,
+            //         body: message.body,
+            //         timestamp: message.timestamp
+            //     })
+            // }).then(response => {
+            //     console.log('Webhook response:', response.status);
+            // }).catch(error => {
+            //     console.error('Webhook error:', error);
+            // });
+        });
+
 
         // Start the client
         client.initialize();
