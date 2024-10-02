@@ -145,3 +145,13 @@ const startClient = () => {
         logger.error(`Error initializing WhatsApp client: ${err.message}`);
     }
 };
+
+// Endpoint to start the WhatsApp client
+app.get('/start', (req, res) => {
+    if (client) {
+        return res.status(400).send('Client is already running.');
+    }
+    startClient();
+    logger.info('WhatsApp client started.');
+    return res.status(200).send('WhatsApp client started.');
+});
