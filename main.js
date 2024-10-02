@@ -43,3 +43,10 @@ const logger = winston.createLogger({
         new winston.transports.Console()  // Still log to console
     ]
 });
+
+const app = express();
+app.use(express.json());
+app.use((err, req, res, next) => {
+    logger.error('Unhandled Error:', err.stack);
+    res.status(500).json({ error: 'Error interno.', message: err.message });
+});
