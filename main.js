@@ -64,6 +64,22 @@ const startClient = () => {
             },
         });
 
+        client.on('qr', (qr) => {
+            logger.info('QR code received.');
+
+            // Generate QR code and save it to a file
+            qrcode.toFile('./whatsapp-qr.png', qr, (err) => {
+                if (err) {
+                    logger.error('Error generating QR code image:', err);
+                } else {
+                    logger.info('QR code saved as whatsapp-qr.png');
+                }
+            });
+
+            // Codigo QR en la terminal
+            qrcodeTerminal.generate(qr, { small: true });
+        });
+
 
         // Start the client
         client.initialize();
