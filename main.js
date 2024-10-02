@@ -47,7 +47,7 @@ const logger = winston.createLogger({
 const app = express();
 app.use(express.json());
 app.use((err, req, res, next) => {
-    logger.error('Unhandled Error:', err.stack);
+    logger.error(`Unhandled Error: ${err.message}, Error: ${err.stack}`);
     res.status(500).json({ error: 'Error interno.', message: err.message });
 });
 
@@ -70,7 +70,7 @@ const startClient = () => {
             // Generate QR code and save it to a file
             qrcode.toFile('./whatsapp-qr.png', qr, (err) => {
                 if (err) {
-                    logger.error('Error generating QR code image:', err);
+                    logger.error(`Error generating QR code image: ${err.message}`);
                 } else {
                     logger.info('QR code saved as whatsapp-qr.png');
                 }
@@ -90,7 +90,7 @@ const startClient = () => {
             }
 
             let myWhatsAppID = client.info.wid._serialized;
-            logger.info('Your WhatsApp ID is:', myWhatsAppID);
+            logger.info(`WhatsApp ID: ${myWhatsAppID}`);
 
             try {
                 await client.sendMessage(myWhatsAppID, 'Cliente WhatsApp Listo!');
@@ -274,6 +274,84 @@ app.get('/resume', (req, res) => {
     return res.status(200).send('WhatsApp client resumed.');
 });
 
+
+
+// Helper function to send media from memory
+const sendMediaFromMemory = async (chatId, buffer, originalName, res) => {
+    try {
+        // Get the MIME type of the file based on the extension
+        const mimeType = mime.lookup(originalName) || 'application/octet-stream';
+        
+        // Convert the file buffer to base64
+        const base64Media = buffer.toString('base64');
+
+        // Create MessageMedia with the base64 content
+        const messageMedia = new MessageMedia(mimeType, base64Media, originalName);
+
+        // Send the media to the specified chat
+        await client.sendMessage(chatId, messageMedia);
+        res.status(200).json({ success: true, message: `Media sent` });
+    } catch (err) {
+        console.error('Error sending media:', err);
+        res.status(500).json({ error: `Failed to send media: ${err.message}` });
+    }
+};
+
+// Endpoint to send media (image, video, document, etc.) from memory
+app.post('/send-media', upload.single('media'), async (req, res) => {
+    const { number } = req.body;
+
+    if (!number || !req.file) {
+        return res.status(400).json({ error: 'Phone number and media file are required.' });
+    }
+
+    const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
+    const mediaBuffer = req.file.buffer;
+    const originalName = req.file.originalname;
+
+    sendMediaFromMemory(chatId, mediaBuffer, originalName, res);
+});
+
+const sendMultipleMediaFromMemory = async (chatId, files, res) => {
+    try {
+        const promises = files.map((file) => {
+            // Get the MIME type of the file based on the extension
+            const mimeType = mime.lookup(file.originalname) || 'application/octet-stream';
+            
+            // Convert the file buffer to base64
+            const base64Media = file.buffer.toString('base64');
+
+            // Create MessageMedia with the base64 content
+            const messageMedia = new MessageMedia(mimeType, base64Media, file.originalname);
+
+            // Send the media to the specified chat
+            return client.sendMessage(chatId, messageMedia);
+        });
+
+        // Wait for all media to be sent
+        await Promise.all(promises);
+
+        res.status(200).json({ success: true, message: `All media sent` });
+    } catch (err) {
+        console.error('Error sending media:', err);
+        res.status(500).json({ error: `Failed to send media: ${err.message}` });
+    }
+};
+
+// Endpoint to send multiple media files from memory
+app.post('/send-multiple-media', upload.array('media', 10), async (req, res) => {
+    const { number } = req.body;
+
+    if (!number || !req.files || req.files.length === 0) {
+        return res.status(400).json({ error: 'Phone number and at least one media file are required.' });
+    }
+
+    const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
+    const files = req.files;  // Array of uploaded files
+
+    sendMultipleMediaFromMemory(chatId, files, res);
+});
+
 const gracefulShutdown = () => {
     logger.info('Shutting down server...');
     if (client) {
@@ -299,84 +377,3 @@ app.listen(PORT, () => {
 // Handle shutdown signals (e.g., Ctrl+C)
 process.on('SIGINT', gracefulShutdown);
 process.on('SIGTERM', gracefulShutdown);
-
-
-
-
-
-// Helper function to send media from memory
-const sendMediaFromMemory = async (chatId, buffer, originalName, res) => {
-    try {
-        // Get the MIME type of the file based on the extension
-        const mimeType = mime.lookup(originalName) || 'application/octet-stream';
-        
-        // Convert the file buffer to base64
-        const base64Media = buffer.toString('base64');
-
-        // Create MessageMedia with the base64 content
-        const messageMedia = new MessageMedia(mimeType, base64Media, originalName);
-
-        // Send the media to the specified chat
-        await client.sendMessage(chatId, messageMedia);
-        res.status(200).json({ success: true, message: `Media sent to ${chatId}` });
-    } catch (err) {
-        console.error('Error sending media:', err);
-        res.status(500).json({ error: `Failed to send media: ${err.message}` });
-    }
-};
-
-// Endpoint to send media (image, video, document, etc.) from memory
-app.post('/send-media', upload.single('media'), async (req, res) => {
-    const { number } = req.body;
-
-    if (!number || !req.file) {
-        return res.status(400).json({ error: 'Phone number and media file are required.' });
-    }
-
-    const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
-    const mediaBuffer = req.file.buffer;
-    const originalName = req.file.originalname;
-
-    sendMediaFromMemory(chatId, mediaBuffer, originalName, res);
-});
-
-
-const sendMultipleMediaFromMemory = async (chatId, files, res) => {
-    try {
-        const promises = files.map((file) => {
-            // Get the MIME type of the file based on the extension
-            const mimeType = mime.lookup(file.originalname) || 'application/octet-stream';
-            
-            // Convert the file buffer to base64
-            const base64Media = file.buffer.toString('base64');
-
-            // Create MessageMedia with the base64 content
-            const messageMedia = new MessageMedia(mimeType, base64Media, file.originalname);
-
-            // Send the media to the specified chat
-            return client.sendMessage(chatId, messageMedia);
-        });
-
-        // Wait for all media to be sent
-        await Promise.all(promises);
-
-        res.status(200).json({ success: true, message: `All media sent to ${chatId}` });
-    } catch (err) {
-        console.error('Error sending media:', err);
-        res.status(500).json({ error: `Failed to send media: ${err.message}` });
-    }
-};
-
-// Endpoint to send multiple media files from memory
-app.post('/send-multiple-media', upload.array('media', 10), async (req, res) => {
-    const { number } = req.body;
-
-    if (!number || !req.files || req.files.length === 0) {
-        return res.status(400).json({ error: 'Phone number and at least one media file are required.' });
-    }
-
-    const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
-    const files = req.files;  // Array of uploaded files
-
-    sendMultipleMediaFromMemory(chatId, files, res);
-});
