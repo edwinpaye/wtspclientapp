@@ -253,3 +253,13 @@ app.get('/health', (req, res) => {
         connected: client.info.connected
     });
 });
+
+app.get('/pause', (req, res) => {
+    if (!client) {
+        return res.status(400).send('Client is not running.');
+    }
+    
+    client.pupPage.close();
+    logger.info('WhatsApp client paused.');
+    return res.status(200).send('WhatsApp client paused.');
+});
