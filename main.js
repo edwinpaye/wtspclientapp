@@ -114,6 +114,26 @@ const startClient = () => {
             // });
         });
 
+        client.on('disconnected', (reason) => {
+            logger.info(`Client was logged out or disconnected: ${reason}`);
+
+            // Reconectar
+            // setTimeout(() => {
+            //     logger.info('Attempting to reconnect the client...');
+            //     startClient();
+            // }, 5000);  // reconectar despues de 5 segundos
+        });
+
+        // Track messages sent/received
+        // client.on('message', (message) => {
+        //     console.log({
+        //         id: message.id._serialized,
+        //         from: message.from,
+        //         body: message.body,
+        //         timestamp: new Date().toISOString()
+        //     });
+        // });
+
 
         // Start the client
         client.initialize();
