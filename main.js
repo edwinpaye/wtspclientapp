@@ -47,8 +47,8 @@ const logger = winston.createLogger({
 const app = express();
 app.use(express.json());
 app.use((err, req, res, next) => {
-    logger.error(`Unhandled Error: ${err.message}, Error: ${err.stack}`);
-    res.status(500).json({ error: 'Error interno.', message: err.message });
+    logger.error(`Unhandled Error, message: ${err.message}, Error: ${err.stack}`);
+    res.status(500).json({ message: 'Error interno.', error: err.message });
 });
 
 let client;
@@ -56,12 +56,19 @@ let client;
 const startClient = () => {
 
     try {
+        // Create a new WhatsApp client
         client = new Client({
             authStrategy: new LocalAuth(),
             puppeteer: {
                 // headless: true,
                 args: ["--no-sandbox"],
+                // executablePath: '/usr/bin/chromium-browser',
             },
+            // locking the wweb version
+            // webVersionCache: {
+            //     type: 'remote',
+            //     remotePath: `https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/${wwebVersion}.html`,
+            // },
         });
 
         client.on('qr', (qr) => {
@@ -89,10 +96,8 @@ const startClient = () => {
                 fs.unlinkSync(qrImagePath);  // Clean up the QR code after authentication
             }
 
-            let myWhatsAppID = client.info.wid._serialized;
-            logger.info(`WhatsApp ID: ${myWhatsAppID}`);
-
             try {
+                let myWhatsAppID = client.info.wid._serialized;
                 await client.sendMessage(myWhatsAppID, 'Cliente WhatsApp Listo!');
             } catch (err) {
                 logger.error(`Error sending message to yourself: ${err.message}`);
@@ -126,12 +131,15 @@ const startClient = () => {
 
         // Track messages sent/received
         // client.on('message', (message) => {
-        //     console.log({
+        //     logger.info({
         //         id: message.id._serialized,
         //         from: message.from,
         //         body: message.body,
         //         timestamp: new Date().toISOString()
         //     });
+        //     if (message.body === 'ping') {
+        //         message.reply('pong');
+        //     }
         // });
 
         // Error handling
@@ -149,88 +157,62 @@ const startClient = () => {
 // Endpoint to start the WhatsApp client
 app.get('/start', (req, res) => {
     if (client) {
-        return res.status(400).send('Client is already running.');
+        return res.status(400).send('EL Cliente WhatsApp esta encendido.');
     }
     startClient();
-    logger.info('WhatsApp client started.');
-    return res.status(200).send('WhatsApp client started.');
+    logger.info('WhatsApp client starting.');
+    return res.status(200).send('Encendiendo el Cliente WhatsApp...');
 });
 
 // Endpoint to stop the WhatsApp client
 app.get('/stop', (req, res) => {
     if (!client) {
-        return res.status(400).send('Client is not running.');
+        return res.status(400).send('El Cliente WhatsApp no esta encendido.');
     }
 
     client.destroy();
     client = null;  // Reset the client instance
     logger.info('WhatsApp client stopped.');
-    return res.status(200).send('WhatsApp client stopped.');
+    return res.status(200).send('Cliente WhatsApp apagado.');
 });
 
 // Endpoint to get QR code (if available)
 app.get('/qr', (req, res) => {
+    if (!client) {
+        return res.status(400).send('El Cliente WhatsApp no esta encendido.');
+    }
+
     const qrImagePath = path.join(__dirname, 'whatsapp-qr.png');
 
     if (fs.existsSync(qrImagePath)) {
         res.sendFile(qrImagePath);
     } else {
-        res.status(404).send('Whatsapp esta generando el Codigo QR.');
+        res.status(404).send('WhatsApp esta generando el Codigo QR.');
     }
 });
 
-// const media = MessageMedia.fromFilePath('./path/to/file.jpg');
-// client.sendMessage('123456789@c.us', media);
-
-// Create a new WhatsApp client
-// const client = new Client({
-//     authStrategy: new LocalAuth(),  // Stores session so you don’t need to scan QR code repeatedly
-//     puppeteer: {
-//         // puppeteer args here
-//         // headless:false,
-//         args: ["--no-sandbox"],
-//         // executablePath: '/usr/bin/chromium-browser',
-//     },
-//     // locking the wweb version
-//     // webVersionCache: {
-//     //     type: 'remote',
-//     //     remotePath: `https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/${wwebVersion}.html`,
-//     // },
-// });
-
-// // Event listener to handle incoming messages
-// client.on('message', message => {
-//     console.log(`Received message: ${message.body}`);
-//     if (message.body === 'ping') {
-//         message.reply('pong');
-//     }
-// });
-
 // Send a message through an API
-// app.post('/send', (req, res) => {
-//     const { number, message } = req.body;
+app.post('/send', sendMessageLimiter, async (req, res) => {
+    const { number, message } = req.body;
 //     client.sendMessage(`${number}@c.us`, message)
 //         .then(response => res.status(200).send({ success: true, response }))
 //         .catch(error => res.status(500).send({ success: false, error }));
-// });
-app.post('/send', sendMessageLimiter, async (req, res) => {
-    const { number, message } = req.body;
 
     if (!number || !message) {
-        return res.status(400).json({ error: 'Numero y mensaje son requeridos.' });
+        return res.status(400).json({ message: 'Numero y mensaje son requeridos.' });
     }
 
     if (!client || !client.info) {
-        return res.status(400).json({ error: 'El cliente aun no esta listo para enviar mensajes.' });
+        return res.status(400).json({ message: 'El cliente aun no esta listo para enviar mensajes.' });
     }
 
     try {
         const chatId = `${number}@c.us`;
         await client.sendMessage(chatId, message);
-        res.status(200).json({ success: true, message: `Message sent to ${number}` });
+        res.status(200).json({ success: true, message: 'Enviado...' });
     } catch (err) {
         logger.error(`Error sending message: ${err}`);
-        res.status(500).json({ error: 'Error al enviar mensaje.', clientError: err });
+        res.status(500).json({ message: 'Error al enviar.', error: err.message });
     }
 });
 
@@ -256,25 +238,23 @@ app.get('/health', (req, res) => {
 
 app.get('/pause', (req, res) => {
     if (!client) {
-        return res.status(400).send('Client is not running.');
+        return res.status(400).send('Client WhatsApp no esta encendido.');
     }
     
     client.pupPage.close();
     logger.info('WhatsApp client paused.');
-    return res.status(200).send('WhatsApp client paused.');
+    return res.status(200).send('WhatsApp client pausado.');
 });
 
 app.get('/resume', (req, res) => {
     if (!client) {
-        return res.status(400).send('Client is not running.');
+        return res.status(400).send('Client WhatsApp no esta encendido.');
     }
 
     client.pupPage.open();
     logger.info('WhatsApp client resumed.')
-    return res.status(200).send('WhatsApp client resumed.');
+    return res.status(200).send('Cliente WhatsApp Listo.');
 });
-
-
 
 // Helper function to send media from memory
 const sendMediaFromMemory = async (chatId, buffer, originalName, res) => {
@@ -290,19 +270,19 @@ const sendMediaFromMemory = async (chatId, buffer, originalName, res) => {
 
         // Send the media to the specified chat
         await client.sendMessage(chatId, messageMedia);
-        res.status(200).json({ success: true, message: `Media sent` });
+        res.status(200).json({ success: true, message: 'Enviado...' });
     } catch (err) {
         console.error('Error sending media:', err);
-        res.status(500).json({ error: `Failed to send media: ${err.message}` });
+        res.status(500).json({ message: 'Error al enviar.', error: err.message });
     }
 };
 
 // Endpoint to send media (image, video, document, etc.) from memory
-app.post('/send-media', upload.single('media'), async (req, res) => {
+app.post('/send-media', sendMessageLimiter, upload.single('media'), async (req, res) => {
     const { number } = req.body;
 
     if (!number || !req.file) {
-        return res.status(400).json({ error: 'Phone number and media file are required.' });
+        return res.status(400).json({ error: 'Numero y Archivo Multimedia son requeridos.' });
     }
 
     const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
@@ -331,25 +311,62 @@ const sendMultipleMediaFromMemory = async (chatId, files, res) => {
         // Wait for all media to be sent
         await Promise.all(promises);
 
-        res.status(200).json({ success: true, message: `All media sent` });
+        res.status(200).json({ success: true, message: `Enviado...` });
     } catch (err) {
-        console.error('Error sending media:', err);
-        res.status(500).json({ error: `Failed to send media: ${err.message}` });
+        console.error(`Error sending media: ${err.message}`);
+        res.status(500).json({ message: 'Error al enviar.', error: err.message });
     }
 };
 
 // Endpoint to send multiple media files from memory
-app.post('/send-multiple-media', upload.array('media', 10), async (req, res) => {
+app.post('/send-multiple-media', sendMessageLimiter, upload.array('media', 10), async (req, res) => {
     const { number } = req.body;
 
     if (!number || !req.files || req.files.length === 0) {
-        return res.status(400).json({ error: 'Phone number and at least one media file are required.' });
+        return res.status(400).json({ error: 'Numero y Archivo(s) Multimedia son requeridos.' });
     }
 
     const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
     const files = req.files;  // Array of uploaded files
 
     sendMultipleMediaFromMemory(chatId, files, res);
+});
+
+// Helper function to send text and media in the same message
+const sendTextAndMediaTogether = async (chatId, textMessage, file, res) => {
+    try {
+        // Get the MIME type of the file based on the extension
+        const mimeType = mime.lookup(file.originalname) || 'application/octet-stream';
+
+        // Convert the file buffer to base64
+        const base64Media = file.buffer.toString('base64');
+
+        // Create MessageMedia with the base64 content
+        const messageMedia = new MessageMedia(mimeType, base64Media, file.originalname);
+
+        // Send the media with the caption (text message) to the specified chat
+        await client.sendMessage(chatId, messageMedia, { caption: textMessage });
+
+        res.status(200).json({ success: true, message: 'Mensaje enviado' });
+    } catch (err) {
+        logger.error(`Error sending message and media: ${err.message}`);
+        res.status(500).json({ message: 'Error al enviar.', error: err.message });
+    }
+};
+
+// Endpoint to send a text message with media in the same message
+app.post('/send-text-with-media', sendMessageLimiter, upload.single('media'), async (req, res) => {
+    const { number, text } = req.body;
+
+    if (!number || !req.file) {
+        return res.status(400).json({ error: 'Numero y archivo multimedia son requeridos.' });
+    }
+
+    const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
+    const textMessage = text || '';  // Text message (optional)
+    const file = req.file;  // Uploaded media file
+
+    sendTextAndMediaTogether(chatId, textMessage, file, res);
 });
 
 const gracefulShutdown = () => {
