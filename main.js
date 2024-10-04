@@ -155,31 +155,31 @@ const startClient = () => {
 };
 
 // Endpoint to start the WhatsApp client
-app.get('/start', (req, res) => {
+app.get('/start-client', (req, res) => {
     if (client) {
-        return res.status(400).send('EL Cliente WhatsApp esta encendido.');
+        return res.status(400).send({ message: 'EL Cliente WhatsApp esta encendido.' });
     }
     startClient();
-    logger.info('WhatsApp client starting.');
-    return res.status(200).send('Encendiendo el Cliente WhatsApp...');
+    logger.info('WhatsApp client is getting started...');
+    return res.status(200).send({ message: 'Encendiendo el Cliente WhatsApp...' });
 });
 
 // Endpoint to stop the WhatsApp client
-app.get('/stop', (req, res) => {
+app.get('/stop-client', (req, res) => {
     if (!client) {
-        return res.status(400).send('El Cliente WhatsApp no esta encendido.');
+        return res.status(400).send({ message: 'El Cliente WhatsApp no esta encendido.' });
     }
 
     client.destroy();
     client = null;  // Reset the client instance
     logger.info('WhatsApp client stopped.');
-    return res.status(200).send('Cliente WhatsApp apagado.');
+    return res.status(200).send({ message: 'Cliente WhatsApp apagado.' });
 });
 
 // Endpoint to get QR code (if available)
 app.get('/qr', (req, res) => {
     if (!client) {
-        return res.status(400).send('El Cliente WhatsApp no esta encendido.');
+        return res.status(400).send({ message: 'El Cliente WhatsApp no esta encendido.' });
     }
 
     const qrImagePath = path.join(__dirname, 'whatsapp-qr.png');
@@ -187,37 +187,21 @@ app.get('/qr', (req, res) => {
     if (fs.existsSync(qrImagePath)) {
         res.sendFile(qrImagePath);
     } else {
-        res.status(404).send('WhatsApp esta generando el Codigo QR.');
+        res.status(404).send({ message: 'WhatsApp esta generando el Codigo QR.' });
     }
 });
 
-// Send a message through an API
-app.post('/send', sendMessageLimiter, async (req, res) => {
-    const { number, message } = req.body;
-//     client.sendMessage(`${number}@c.us`, message)
-//         .then(response => res.status(200).send({ success: true, response }))
-//         .catch(error => res.status(500).send({ success: false, error }));
-
-    if (!number || !message) {
-        return res.status(400).json({ message: 'Numero y mensaje son requeridos.' });
+// Endpoint to get the status of the WhatsApp client
+app.get('/client-status', (req, res) => {
+    if (!client) {
+        return res.status(400).json({ message: 'WhatsApp Cliente no esta encendido.' });
     }
 
-    if (!client || !client.info) {
-        return res.status(400).json({ message: 'El cliente aun no esta listo para enviar mensajes.' });
-    }
-
-    try {
-        const chatId = `${number}@c.us`;
-        await client.sendMessage(chatId, message);
-        res.status(200).json({ success: true, message: 'Enviado...' });
-    } catch (err) {
-        logger.error(`Error sending message: ${err}`);
-        res.status(500).json({ message: 'Error al enviar.', error: err.message });
-    }
+    return res.status(200).json({ message: 'Cliente WhatsApp esta encendido.' });
 });
 
 // Endpoint for health check
-app.get('/health', (req, res) => {
+app.get('/health-check', (req, res) => {
     if (client && client.info && client.info.wid) {
     // if (!client || !client.info) {
         return res.status(500).json({
@@ -236,25 +220,49 @@ app.get('/health', (req, res) => {
     });
 });
 
-app.get('/pause', (req, res) => {
-    if (!client) {
-        return res.status(400).send('Client WhatsApp no esta encendido.');
+app.post('/send-text', sendMessageLimiter, async (req, res) => {
+    const { number, text } = req.body;
+//     client.sendMessage(`${number}@c.us`, text)
+//         .then(response => res.status(200).send({ success: true, response }))
+//         .catch(error => res.status(500).send({ success: false, error }));
+
+    if (!number || !text) {
+        return res.status(400).json({ message: 'Numero y mensaje son requeridos.' });
     }
+
+    if (!client || !client.info) {
+        return res.status(400).json({ message: 'El cliente aun no esta listo para enviar mensajes.' });
+    }
+
+    try {
+        const chatId = `${number}@c.us`;
+        await client.sendMessage(chatId, text);
+        res.status(200).json({ success: true, message: 'Enviado...' });
+    } catch (err) {
+        logger.error(`Error sending message: ${err}`);
+        res.status(500).json({ message: 'Error al enviar.', error: err.message });
+    }
+});
+
+// app.get('/pause', (req, res) => {
+//     if (!client) {
+//         return res.status(400).send('Client WhatsApp no esta encendido.');
+//     }
     
-    client.pupPage.close();
-    logger.info('WhatsApp client paused.');
-    return res.status(200).send('WhatsApp client pausado.');
-});
+//     client.pupPage.close();
+//     logger.info('WhatsApp client paused.');
+//     return res.status(200).send('WhatsApp client pausado.');
+// });
 
-app.get('/resume', (req, res) => {
-    if (!client) {
-        return res.status(400).send('Client WhatsApp no esta encendido.');
-    }
+// app.get('/resume', (req, res) => {
+//     if (!client) {
+//         return res.status(400).send('Client WhatsApp no esta encendido.');
+//     }
 
-    client.pupPage.open();
-    logger.info('WhatsApp client resumed.')
-    return res.status(200).send('Cliente WhatsApp Listo.');
-});
+//     client.pupPage.open();
+//     logger.info('WhatsApp client resumed.')
+//     return res.status(200).send('Cliente WhatsApp Listo.');
+// });
 
 // Helper function to send media from memory
 const sendMediaFromMemory = async (chatId, buffer, originalName, res) => {
@@ -282,7 +290,7 @@ app.post('/send-media', sendMessageLimiter, upload.single('media'), async (req, 
     const { number } = req.body;
 
     if (!number || !req.file) {
-        return res.status(400).json({ error: 'Numero y Archivo Multimedia son requeridos.' });
+        return res.status(400).json({ message: 'Numero y Archivo Multimedia son requeridos.' });
     }
 
     const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
@@ -290,46 +298,6 @@ app.post('/send-media', sendMessageLimiter, upload.single('media'), async (req, 
     const originalName = req.file.originalname;
 
     sendMediaFromMemory(chatId, mediaBuffer, originalName, res);
-});
-
-const sendMultipleMediaFromMemory = async (chatId, files, res) => {
-    try {
-        const promises = files.map((file) => {
-            // Get the MIME type of the file based on the extension
-            const mimeType = mime.lookup(file.originalname) || 'application/octet-stream';
-            
-            // Convert the file buffer to base64
-            const base64Media = file.buffer.toString('base64');
-
-            // Create MessageMedia with the base64 content
-            const messageMedia = new MessageMedia(mimeType, base64Media, file.originalname);
-
-            // Send the media to the specified chat
-            return client.sendMessage(chatId, messageMedia);
-        });
-
-        // Wait for all media to be sent
-        await Promise.all(promises);
-
-        res.status(200).json({ success: true, message: `Enviado...` });
-    } catch (err) {
-        console.error(`Error sending media: ${err.message}`);
-        res.status(500).json({ message: 'Error al enviar.', error: err.message });
-    }
-};
-
-// Endpoint to send multiple media files from memory
-app.post('/send-multiple-media', sendMessageLimiter, upload.array('media', 10), async (req, res) => {
-    const { number } = req.body;
-
-    if (!number || !req.files || req.files.length === 0) {
-        return res.status(400).json({ error: 'Numero y Archivo(s) Multimedia son requeridos.' });
-    }
-
-    const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
-    const files = req.files;  // Array of uploaded files
-
-    sendMultipleMediaFromMemory(chatId, files, res);
 });
 
 // Helper function to send text and media in the same message
@@ -359,7 +327,7 @@ app.post('/send-text-with-media', sendMessageLimiter, upload.single('media'), as
     const { number, text } = req.body;
 
     if (!number || !req.file) {
-        return res.status(400).json({ error: 'Numero y archivo multimedia son requeridos.' });
+        return res.status(400).json({ messsage: 'Numero y archivo multimedia son requeridos.' });
     }
 
     const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
@@ -369,20 +337,109 @@ app.post('/send-text-with-media', sendMessageLimiter, upload.single('media'), as
     sendTextAndMediaTogether(chatId, textMessage, file, res);
 });
 
-const gracefulShutdown = () => {
+const sendMultipleMediaFromMemory = async (chatId, files, res) => {
+    try {
+        const promises = files.map((file) => {
+            // Get the MIME type of the file based on the extension
+            const mimeType = mime.lookup(file.originalname) || 'application/octet-stream';
+            
+            // Convert the file buffer to base64
+            const base64Media = file.buffer.toString('base64');
+
+            // Create MessageMedia with the base64 content
+            const messageMedia = new MessageMedia(mimeType, base64Media, file.originalname);
+
+            // Send the media to the specified chat
+            return client.sendMessage(chatId, messageMedia);
+        });
+
+        // Wait for all media to be sent
+        await Promise.all(promises);
+
+        res.status(200).json({ success: true, message: 'Enviado...' });
+    } catch (err) {
+        console.error(`Error sending media: ${err.message}`);
+        res.status(500).json({ message: 'Error al enviar.', error: err.message });
+    }
+};
+
+// Endpoint to send multiple media files from memory
+app.post('/send-multiple-media', sendMessageLimiter, upload.array('media', 10), async (req, res) => {
+    const { number } = req.body;
+
+    if (!number || !req.files || req.files.length === 0) {
+        return res.status(400).json({ message: 'Numero y Archivo(s) Multimedia son requeridos.' });
+    }
+
+    const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
+    const files = req.files;  // Array of uploaded files
+
+    sendMultipleMediaFromMemory(chatId, files, res);
+});
+
+
+// Helper function to send multiple media with text
+const sendTextAndMultipleMedia = async (chatId, textMessage, files, res) => {
+    try {
+        // If text message is provided, send it as the first message
+        if (textMessage) {
+            await client.sendMessage(chatId, textMessage);
+        }
+
+        // Send each media file one by one
+        const promises = files.map((file) => {
+            // Get the MIME type of the file based on the extension
+            const mimeType = mime.lookup(file.originalname) || 'application/octet-stream';
+
+            // Convert the file buffer to base64
+            const base64Media = file.buffer.toString('base64');
+
+            // Create MessageMedia with the base64 content
+            const messageMedia = new MessageMedia(mimeType, base64Media, file.originalname);
+
+            // Send the media with a caption (if provided)
+            return client.sendMessage(chatId, messageMedia);
+        });
+
+        // Wait for all media to be sent
+        await Promise.all(promises);
+
+        res.status(200).json({ success: true, message: 'Enviado...' });
+    } catch (err) {
+        console.error('Error sending message and media:', err);
+        res.status(500).json({ message: 'Error al enviar.', error: err.message });
+    }
+};
+
+// Endpoint to send a text message with multiple media files
+app.post('/send-text-with-multiple-media', upload.array('media', 10), async (req, res) => {
+    const { number, text } = req.body;
+
+    if (!number || !req.files || req.files.length === 0) {
+        return res.status(400).json({ message: 'Numero y Archivo(s) Multimedia son requeridos.' });
+    }
+
+    const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
+    const files = req.files;  // Array of uploaded files
+    const textMessage = text || '';  // Text message (optional)
+
+    sendTextAndMultipleMedia(chatId, textMessage, files, res);
+});
+
+const gracefulShutdown = async () => {
     logger.info('Shutting down server...');
-    if (client) {
-        client.destroy()
-            .then(() => {
-                logger.info('WhatsApp client stopped.');
-                process.exit(0);
-            })
-            .catch((err) => {
-                logger.error(`Error during client shutdown: ${err.message}`);
-                process.exit(1);
-            });
-    } else {
+    try {
+        if (client) {
+            logger.info('Logging out the WhatsApp client...');
+            await client.logout();
+            // await client.destroy();
+        }
+
+        logger.info('Cleanup complete. Exiting...');
         process.exit(0);
+    } catch (error) {
+        logger.error(`Error during shutdown: ${error.message}`);
+        process.exit(1);
     }
 };
 
@@ -392,5 +449,11 @@ app.listen(PORT, () => {
 });
 
 // Handle shutdown signals (e.g., Ctrl+C)
-process.on('SIGINT', gracefulShutdown);
-process.on('SIGTERM', gracefulShutdown);
+// process.on('SIGINT', gracefulShutdown);
+process.on('SIGINT', async () => {
+    await gracefulShutdown();
+});
+// process.on('SIGTERM', gracefulShutdown);
+process.on('SIGTERM', async () => {
+    await gracefulShutdown();
+});
