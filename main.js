@@ -89,8 +89,7 @@ const startClient = async () => {
 
         client.on('ready', async () => {
             logger.info('Log-in was successfull, WhatsApp client is ready!');
-            
-            // Optionally delete the QR code after successful login
+
             const qrImagePath = path.join(__dirname, 'whatsapp-qr.png');
             if (fs.existsSync(qrImagePath)) {
                 fs.unlinkSync(qrImagePath);
@@ -241,6 +240,20 @@ app.get('/health-check', (req, res) => {
     });
 });
 
+const deleteDyrectory = (directoryPath) => {
+
+    if (fs.existsSync(directoryPath)) {
+        fs.rm(directoryPath, { recursive: true, force: true }, (err) => {
+            if (err) {
+                logger.error(`Error deleting directory: ${directoryPath}, Error: ${err}`);
+            } else {
+                logger.info(`${directoryPath} directory deleted successfully`);
+            }
+        });
+    }
+
+}
+
 app.get('/reset-log-in', async (req, res) => {
     if (client) await client.destroy();
 
@@ -251,13 +264,19 @@ app.get('/reset-log-in', async (req, res) => {
     }
     try {
 
-        await startClient();
-        logger.info('WhatsApp client is getting started...');
+        const authPath = path.join(__dirname, '.wwebjs_auth');
+        deleteDyrectory(authPath);
+        const cachePath = path.join(__dirname, '.wwebjs_cache');
+        deleteDyrectory(cachePath);
 
-        const qrImagePath = path.join(__dirname, 'whatsapp-qr.png');
+        return res.status(200).send({ message: 'El cliente WhatsApp fue restablecido exitosamente.' });
+        // await startClient();
+        // logger.info('WhatsApp client is getting started...');
 
-        if (fs.existsSync(qrImagePath)) return res.sendFile(qrImagePath);
-        else return res.status(200).send({ message: 'WhatsApp esta generando el Codigo QR.' });
+        // const qrImagePath = path.join(__dirname, 'whatsapp-qr.png');
+
+        // if (fs.existsSync(qrImagePath)) return res.sendFile(qrImagePath);
+        // else return res.status(200).send({ message: 'WhatsApp esta generando el Codigo QR.' });
 
     } catch (err) {
         logger.error(`Error initializing WhatsApp client: ${err.message}`);
