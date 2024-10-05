@@ -53,9 +53,9 @@ app.use((err, req, res, next) => {
 
 let client;
 
-const startClient = () => {
+const startClient = async () => {
 
-    try {
+    // try {
         // Create a new WhatsApp client
         client = new Client({
             authStrategy: new LocalAuth(),
@@ -88,12 +88,12 @@ const startClient = () => {
         });
 
         client.on('ready', async () => {
-            logger.info('WhatsApp client is ready!');
+            logger.info('Log-in was successfull, WhatsApp client is ready!');
             
             // Optionally delete the QR code after successful login
             const qrImagePath = path.join(__dirname, 'whatsapp-qr.png');
             if (fs.existsSync(qrImagePath)) {
-                fs.unlinkSync(qrImagePath);  // Clean up the QR code after authentication
+                fs.unlinkSync(qrImagePath);
             }
 
             try {
@@ -148,10 +148,10 @@ const startClient = () => {
         });
 
         // Start the client
-        client.initialize();
-    } catch (err) {
-        logger.error(`Error initializing WhatsApp client: ${err.message}`);
-    }
+        await client.initialize();
+    // } catch (err) {
+    //     logger.error(`Error initializing WhatsApp client: ${err.message}`);
+    // }
 };
 
 // Endpoint to start the WhatsApp client
@@ -164,13 +164,34 @@ app.get('/start-client', (req, res) => {
     return res.status(200).send({ message: 'Encendiendo el Cliente WhatsApp...' });
 });
 
+// Endpoint to start the WhatsApp client
+app.get('/start-whatsapp-client', async (req, res) => {
+    if (client) {
+        return res.status(400).send({ message: 'EL Cliente WhatsApp esta encendido.' });
+    }
+    try {
+        await startClient();
+        logger.info('WhatsApp client is getting started...');
+
+        const qrImagePath = path.join(__dirname, 'whatsapp-qr.png');
+
+        if (fs.existsSync(qrImagePath)) return res.sendFile(qrImagePath);
+        else return res.status(200).send({ message: 'WhatsApp esta generando el Codigo QR.' });
+
+        // return res.status(200).send({ message: 'Encendiendo el Cliente WhatsApp...' });
+    } catch (err) {
+        logger.error(`Error initializing WhatsApp client: ${err.message}`);
+        res.status(500).json({ message: 'Error al iniciar el cliente WhatsApp.', error: err.message });
+    }
+});
+
 // Endpoint to stop the WhatsApp client
-app.get('/stop-client', (req, res) => {
+app.get('/stop-client', async (req, res) => {
     if (!client) {
         return res.status(400).send({ message: 'El Cliente WhatsApp no esta encendido.' });
     }
 
-    client.destroy();
+    await client.destroy();
     client = null;  // Reset the client instance
     logger.info('WhatsApp client stopped.');
     return res.status(200).send({ message: 'Cliente WhatsApp apagado.' });
@@ -412,7 +433,7 @@ const sendTextAndMultipleMedia = async (chatId, textMessage, files, res) => {
 };
 
 // Endpoint to send a text message with multiple media files
-app.post('/send-text-with-multiple-media', upload.array('media', 10), async (req, res) => {
+app.post('/send-text-with-multiple-media', sendMessageLimiter, upload.array('media', 10), async (req, res) => {
     const { number, text } = req.body;
 
     if (!number || !req.files || req.files.length === 0) {
