@@ -241,6 +241,30 @@ app.get('/health-check', (req, res) => {
     });
 });
 
+app.get('/reset-log-in', async (req, res) => {
+    if (client) await client.destroy();
+
+    client = null;  // Reset the client instance
+    if (client) {
+        logger.error('WhatsApp Client has not been reset.');
+        return res.status(400).send({ message: 'EL Cliente WhatsApp esta encendido.' });
+    }
+    try {
+
+        await startClient();
+        logger.info('WhatsApp client is getting started...');
+
+        const qrImagePath = path.join(__dirname, 'whatsapp-qr.png');
+
+        if (fs.existsSync(qrImagePath)) return res.sendFile(qrImagePath);
+        else return res.status(200).send({ message: 'WhatsApp esta generando el Codigo QR.' });
+
+    } catch (err) {
+        logger.error(`Error initializing WhatsApp client: ${err.message}`);
+        res.status(500).json({ message: 'Error al restablecer el cliente WhatsApp.', error: err.message });
+    }
+});
+
 app.post('/send-text', sendMessageLimiter, async (req, res) => {
     const { number, text } = req.body;
 //     client.sendMessage(`${number}@c.us`, text)
