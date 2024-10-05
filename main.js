@@ -255,14 +255,15 @@ const deleteDyrectory = (directoryPath) => {
 }
 
 app.get('/reset-log-in', async (req, res) => {
-    if (client) await client.destroy();
-
-    client = null;  // Reset the client instance
-    if (client) {
-        logger.error('WhatsApp Client has not been reset.');
-        return res.status(400).send({ message: 'EL Cliente WhatsApp esta encendido.' });
-    }
     try {
+
+        if (client) await client.destroy();
+
+        client = null;  // Reset the client instance
+        if (client) {
+            logger.error('WhatsApp Client has not been reset.');
+            return res.status(400).send({ message: 'EL Cliente WhatsApp esta encendido.' });
+        }
 
         const authPath = path.join(__dirname, '.wwebjs_auth');
         deleteDyrectory(authPath);
