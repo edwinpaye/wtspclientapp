@@ -60,7 +60,7 @@ app.use((err, req, res, next) => {
 //     const token = authHeader.split(' ')[1];
 
 //     try {
-//         const response = await fetch('https://example.com/validate-token', {
+//         const response = await fetch('https://gisul.com/validate-token', {
 //             method: 'POST',
 //             headers: {
 //                 'Authorization': `Bearer ${token}`,
@@ -77,6 +77,7 @@ app.use((err, req, res, next) => {
 //             req.user = data;
 //             next();
 //         } else {
+            // logger.info(`Token invalido: ${data}`);
 //             return res.status(401).json({ message: 'Unauthorized: Token invalido' });
 //         }
 //     } catch (error) {
@@ -192,9 +193,65 @@ app.get('/start-client', (req, res) => {
     if (client) {
         return res.status(400).send({ message: 'EL Cliente WhatsApp esta encendido.' });
     }
-    startClient();
-    logger.info('WhatsApp client is getting started...');
-    return res.status(200).send({ message: 'Encendiendo el Cliente WhatsApp...' });
+    try {
+        const qrImagePath = path.join(__dirname, '../whatsapp-qr.png');
+        if (fs.existsSync(qrImagePath)) { fs.unlinkSync(qrImagePath); }
+        startClient();
+        logger.info('WhatsApp client is getting started...');
+        return res.status(200).send({ message: 'Encendiendo el Cliente WhatsApp...' });
+    } catch (err) {
+        logger.error(`Error initializing WhatsApp client: ${err.message}`);
+    }
+});
+
+app.get('/test-token', async (req, res) => {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'No autorizado' });
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    try {
+        return res.status(200).send({ message: 'token: ' + token, authorization: authHeader });
+    } catch (error) {
+        logger.error(`Error validando token: ${token}, Error: ${error.message}`);
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+});
+app.get('/validate-token', async (req, res) => {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'No autorizado' });
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    try {
+        const response = await fetch('https://gisul.com/validate-token', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                token,
+            }),
+        });
+
+        // If validation is successful
+        const data = await response.json();
+        if (response.ok && data.result) {
+            req.user = data;
+            next();
+        } else {
+            logger.info(`Token invalido: ${data}`);
+            return res.status(401).json({ message: 'Unauthorized: Token invalido' });
+        }
+    } catch (error) {
+        logger.error(`Error validando token: ${token}, Error: ${error.message}`);
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
 });
 
 // Endpoint to start the WhatsApp client
@@ -203,15 +260,16 @@ app.get('/start-whatsapp-client', async (req, res) => {
         return res.status(400).send({ message: 'EL Cliente WhatsApp esta encendido.' });
     }
     try {
-        await startClient();
-        logger.info('WhatsApp client is getting started...');
-
         const qrImagePath = path.join(__dirname, '../whatsapp-qr.png');
+        if (fs.existsSync(qrImagePath)) {
+            fs.unlinkSync(qrImagePath);
+        }
+
+        await startClient();
+        logger.info('WhatsApp client is ready.');
 
         if (fs.existsSync(qrImagePath)) return res.sendFile(qrImagePath);
         else return res.status(200).send({ message: 'WhatsApp esta generando el Codigo QR.' });
-
-        // return res.status(200).send({ message: 'Encendiendo el Cliente WhatsApp...' });
     } catch (err) {
         logger.error(`Error initializing WhatsApp client: ${err.message}`);
         res.status(500).json({ message: 'Error al iniciar el cliente WhatsApp.', error: err.message });
@@ -255,9 +313,9 @@ app.get('/client-status', (req, res) => {
 });
 
 // Endpoint for health check
-app.get('/health-check', (req, res) => {
-    if (client && client.info && client.info.wid) {
-    // if (!client || !client.info) {
+app.get('/client-health-check', (req, res) => {
+    // if (client && client.info && client.info.wid) {
+    if (!client || !client.info || !client.info.wid) {
         return res.status(500).json({
             status: 'Client is not healthy',
             uptime: process.uptime(),
@@ -303,12 +361,14 @@ app.get('/reset-log-in', async (req, res) => {
         deleteDyrectory(authPath);
         const cachePath = path.join(__dirname, '../.wwebjs_cache');
         deleteDyrectory(cachePath);
+        const qrImagePath = path.join(__dirname, '../whatsapp-qr.png');
+        if (fs.existsSync(qrImagePath)) {
+            fs.unlinkSync(qrImagePath);
+        }
 
-        return res.status(200).send({ message: 'El cliente WhatsApp fue restablecido exitosamente.' });
+        return res.status(200).send({ message: 'El cliente WhatsApp fue desvinculado.' });
         // await startClient();
-        // logger.info('WhatsApp client is getting started...');
-
-        // const qrImagePath = path.join(__dirname, 'whatsapp-qr.png');
+        // logger.info('WhatsApp client is ready.');
 
         // if (fs.existsSync(qrImagePath)) return res.sendFile(qrImagePath);
         // else return res.status(200).send({ message: 'WhatsApp esta generando el Codigo QR.' });
