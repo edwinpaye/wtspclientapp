@@ -88,6 +88,8 @@ app.use((err, req, res, next) => {
 
 let client;
 
+const numberCode = '591';
+
 const startClient = async () => {
 
     // try {
@@ -110,7 +112,7 @@ const startClient = async () => {
             logger.info('QR code received.');
 
             // Generate QR code and save it to a file
-            qrcode.toFile('../whatsapp-qr.png', qr, (err) => {
+            qrcode.toFile('./whatsapp-qr.png', qr, (err) => {
                 if (err) {
                     logger.error(`Error generating QR code image: ${err.message}`);
                 } else {
@@ -133,6 +135,7 @@ const startClient = async () => {
             try {
                 let myWhatsAppID = client.info.wid._serialized;
                 await client.sendMessage(myWhatsAppID, 'Cliente WhatsApp Listo!');
+                logger.info(`Status notified to: ${myWhatsAppID}`);
             } catch (err) {
                 logger.error(`Error sending message to yourself: ${err.message}`);
             }
@@ -219,45 +222,46 @@ app.get('/test-token', async (req, res) => {
         return res.status(401).json({ message: 'Unauthorized' });
     }
 });
-app.get('/validate-token', async (req, res) => {
-    const authHeader = req.headers['authorization'];
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ message: 'No autorizado' });
-    }
+// app.get('/validate-token', async (req, res) => {
+//     const authHeader = req.headers['authorization'];
+//     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+//         return res.status(401).json({ message: 'No autorizado' });
+//     }
 
-    const token = authHeader.split(' ')[1];
+//     const token = authHeader.split(' ')[1];
 
-    try {
-        const response = await fetch('https://gisul.com/validate-token', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                token,
-            }),
-        });
+//     try {
+//         const response = await fetch('https://gisul.com/validate-token', {
+//             method: 'POST',
+//             headers: {
+//                 'Authorization': `Bearer ${token}`,
+//                 'Content-Type': 'application/json',
+//             },
+//             body: JSON.stringify({
+//                 token,
+//             }),
+//         });
 
-        // If validation is successful
-        const data = await response.json();
-        if (response.ok && data.result) {
-            req.user = data;
-            next();
-        } else {
-            logger.info(`Token invalido: ${data}`);
-            return res.status(401).json({ message: 'Unauthorized: Token invalido' });
-        }
-    } catch (error) {
-        logger.error(`Error validando token: ${token}, Error: ${error.message}`);
-        return res.status(401).json({ message: 'Unauthorized' });
-    }
-});
+//         // If validation is successful
+//         const data = await response.json();
+//         if (response.ok && data.result) {
+//             req.user = data;
+//             next();
+//         } else {
+//             logger.info(`Token invalido: ${data}`);
+//             return res.status(401).json({ message: 'Unauthorized: Token invalido', resp: data });
+//         }
+//     } catch (error) {
+//         logger.error(`Error validando token: ${token}, Error: ${error.message}`);
+//         return res.status(401).json({ message: 'Unauthorized' });
+//     }
+// });
 
 // Endpoint to start the WhatsApp client
 app.get('/start-whatsapp-client', async (req, res) => {
+    logger.info('WhatsApp client is getting started...');
     if (client) {
-        return res.status(400).send({ message: 'EL Cliente WhatsApp esta encendido.' });
+        return res.status(400).send({ message: 'EL Cliente WhatsApp esta listo.' });
     }
     try {
         const qrImagePath = path.join(__dirname, '../whatsapp-qr.png');
@@ -266,10 +270,12 @@ app.get('/start-whatsapp-client', async (req, res) => {
         }
 
         await startClient();
-        logger.info('WhatsApp client is ready.');
+        logger.info('WhatsApp Client is ready.');
 
-        if (fs.existsSync(qrImagePath)) return res.sendFile(qrImagePath);
-        else return res.status(200).send({ message: 'WhatsApp esta generando el Codigo QR.' });
+        // if (fs.existsSync(qrImagePath)) return res.sendFile(qrImagePath);
+        // else return res.status(200).send({ message: 'WhatsApp esta generando el Codigo QR.' });
+
+        return res.status(200).send({ message: 'Cliente WhatsApp listo para el enlace.' });
     } catch (err) {
         logger.error(`Error initializing WhatsApp client: ${err.message}`);
         res.status(500).json({ message: 'Error al iniciar el cliente WhatsApp.', error: err.message });
@@ -381,7 +387,7 @@ app.get('/reset-log-in', async (req, res) => {
 
 app.post('/send-text', sendMessageLimiter, async (req, res) => {
     const { number, text } = req.body;
-//     client.sendMessage(`${number}@c.us`, text)
+//     client.sendMessage(`${numberCode}${number}@c.us`, text)
 //         .then(response => res.status(200).send({ success: true, response }))
 //         .catch(error => res.status(500).send({ success: false, error }));
 
@@ -394,7 +400,7 @@ app.post('/send-text', sendMessageLimiter, async (req, res) => {
     }
 
     try {
-        const chatId = `${number}@c.us`;
+        const chatId = `${numberCode}${number}@c.us`;
         await client.sendMessage(chatId, text);
         res.status(200).json({ success: true, message: 'Enviado...' });
     } catch (err) {
@@ -452,7 +458,7 @@ app.post('/send-media', sendMessageLimiter, upload.single('media'), async (req, 
         return res.status(400).json({ message: 'Numero y Archivo Multimedia son requeridos.' });
     }
 
-    const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
+    const chatId = `${numberCode}${number}@c.us`;  // WhatsApp format for sending messages
     const mediaBuffer = req.file.buffer;
     const originalName = req.file.originalname;
 
@@ -489,7 +495,7 @@ app.post('/send-text-with-media', sendMessageLimiter, upload.single('media'), as
         return res.status(400).json({ messsage: 'Numero y archivo multimedia son requeridos.' });
     }
 
-    const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
+    const chatId = `${numberCode}${number}@c.us`;  // WhatsApp format for sending messages
     const textMessage = text || '';  // Text message (optional)
     const file = req.file;  // Uploaded media file
 
@@ -530,7 +536,7 @@ app.post('/send-multiple-media', sendMessageLimiter, upload.array('media', 10), 
         return res.status(400).json({ message: 'Numero y Archivo(s) Multimedia son requeridos.' });
     }
 
-    const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
+    const chatId = `${numberCode}${number}@c.us`;  // WhatsApp format for sending messages
     const files = req.files;  // Array of uploaded files
 
     sendMultipleMediaFromMemory(chatId, files, res);
@@ -578,7 +584,7 @@ app.post('/send-text-with-multiple-media', sendMessageLimiter, upload.array('med
         return res.status(400).json({ message: 'Numero y Archivo(s) Multimedia son requeridos.' });
     }
 
-    const chatId = `${number}@c.us`;  // WhatsApp format for sending messages
+    const chatId = `${numberCode}${number}@c.us`;  // WhatsApp format for sending messages
     const files = req.files;  // Array of uploaded files
     const textMessage = text || '';  // Text message (optional)
 
