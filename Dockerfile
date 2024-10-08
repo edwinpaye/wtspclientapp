@@ -55,10 +55,10 @@ COPY package.json ./
 RUN npm install
 
 # Step 5: Copy the source code into the container
-COPY main.js .
+COPY ./src/main.js ./src/
 
 # Step 6: Expose the application port
 EXPOSE 3000
 
 # Step 7: Start the application
-CMD ["node", "main.js"]
+CMD ["node", "./src/main.js"]
