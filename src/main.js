@@ -194,13 +194,15 @@ const startClient = async () => {
 // Endpoint to start the WhatsApp client
 app.get('/start-client', (req, res) => {
     if (client) {
-        return res.status(400).send({ message: 'EL Cliente WhatsApp esta encendido.' });
+        // return res.status(400).send({ message: 'EL Cliente WhatsApp esta encendido.' });
+        logger.info("Re-encendido del Cliente WhatsApp capturado sin efecto, el cliente ya se encuentra encendido.");
+        return res.status(200).send({ message: 'EL Cliente WhatsApp esta Iniciado Anteriormente.' });
     }
     try {
+        logger.info('WhatsApp client is getting started...');
         const qrImagePath = path.join(__dirname, '../whatsapp-qr.png');
         if (fs.existsSync(qrImagePath)) { fs.unlinkSync(qrImagePath); }
         startClient();
-        logger.info('WhatsApp client is getting started...');
         return res.status(200).send({ message: 'Encendiendo el Cliente WhatsApp...' });
     } catch (err) {
         logger.error(`Error initializing WhatsApp client: ${err.message}`);
@@ -259,10 +261,11 @@ app.get('/test-token', async (req, res) => {
 
 // Endpoint to start the WhatsApp client
 app.get('/start-whatsapp-client', async (req, res) => {
-    logger.info('WhatsApp client is getting started...');
     if (client) {
-        return res.status(400).send({ message: 'EL Cliente WhatsApp esta listo.' });
+        logger.info("Re-encendido del Cliente WhatsApp capturado sin efecto, el cliente ya se encuentra encendido.");
+        return res.status(200).send({ message: 'EL Cliente WhatsApp esta Iniciado anteriormente.' });
     }
+    logger.info('WhatsApp client is getting started...');
     try {
         const qrImagePath = path.join(__dirname, '../whatsapp-qr.png');
         if (fs.existsSync(qrImagePath)) {
@@ -577,7 +580,12 @@ const sendTextAndMultipleMedia = async (chatId, textMessage, files, res) => {
 };
 
 // Endpoint to send a text message with multiple media files
-app.post('/send-text-with-multiple-media', sendMessageLimiter, upload.array('media', 10), async (req, res) => {
+// app.post('/send-text-with-multiple-media', sendMessageLimiter, upload.array('media', 10), async (req, res) => {
+app.post('/send-text-with-multiple-media', sendMessageLimiter, upload.fields([
+    { name: 'files', maxCount: 10 },
+    { name: 'text' },
+    { name: 'number' }
+]), async (req, res) => {
     const { number, text } = req.body;
 
     if (!number || !req.files || req.files.length === 0) {
@@ -585,10 +593,11 @@ app.post('/send-text-with-multiple-media', sendMessageLimiter, upload.array('med
     }
 
     const chatId = `${numberCode}${number}@c.us`;  // WhatsApp format for sending messages
-    const files = req.files;  // Array of uploaded files
+    const files = req.files.files || [];  // Array of uploaded files
     const textMessage = text || '';  // Text message (optional)
 
     sendTextAndMultipleMedia(chatId, textMessage, files, res);
+    // res.status(200).json({ success: true, message: 'Enviado...', lifeslength: files.length || 'nothing', chatId, textMessage });
 });
 
 const gracefulShutdown = async () => {
