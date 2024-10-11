@@ -405,6 +405,7 @@ app.post('/send-text', sendMessageLimiter, async (req, res) => {
     try {
         const chatId = `${numberCode}${number}@c.us`;
         await client.sendMessage(chatId, text);
+        logger.info("Message sent successfully...");
         res.status(200).json({ success: true, message: 'Enviado...' });
     } catch (err) {
         logger.error(`Error sending message: ${err}`);
@@ -549,11 +550,6 @@ app.post('/send-multiple-media', sendMessageLimiter, upload.array('media', 10), 
 // Helper function to send multiple media with text
 const sendTextAndMultipleMedia = async (chatId, textMessage, files, res) => {
     try {
-        // If text message is provided, send it as the first message
-        if (textMessage) {
-            await client.sendMessage(chatId, textMessage);
-        }
-
         // Send each media file one by one
         const promises = files.map((file) => {
             // Get the MIME type of the file based on the extension
@@ -572,6 +568,12 @@ const sendTextAndMultipleMedia = async (chatId, textMessage, files, res) => {
         // Wait for all media to be sent
         await Promise.all(promises);
 
+        // If text message is provided, send it as the first message
+        if (textMessage) {
+            await client.sendMessage(chatId, textMessage);
+        }
+
+        logger.info("Message sent successfully...");
         res.status(200).json({ success: true, message: 'Enviado...' });
     } catch (err) {
         console.error('Error sending message and media:', err);
@@ -586,10 +588,15 @@ app.post('/send-text-with-multiple-media', sendMessageLimiter, upload.fields([
     { name: 'text' },
     { name: 'number' }
 ]), async (req, res) => {
+
     const { number, text } = req.body;
 
     if (!number || !req.files || req.files.length === 0) {
         return res.status(400).json({ message: 'Numero y Archivo(s) Multimedia son requeridos.' });
+    }
+
+    if (!client || !client.info) {
+        return res.status(400).json({ message: 'El cliente aun no esta listo para enviar mensajes.' });
     }
 
     const chatId = `${numberCode}${number}@c.us`;  // WhatsApp format for sending messages
