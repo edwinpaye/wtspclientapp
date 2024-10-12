@@ -591,20 +591,46 @@ app.post('/send-text-with-multiple-media', sendMessageLimiter, upload.fields([
 
     const { number, text } = req.body;
 
+    logger.info(`number: ${number || 'nothing'}, length: ${req.files?.files?.length || 'void'} `);
     if (!number || !req.files || req.files.length === 0) {
         return res.status(400).json({ message: 'Numero y Archivo(s) Multimedia son requeridos.' });
     }
 
-    if (!client || !client.info) {
-        return res.status(400).json({ message: 'El cliente aun no esta listo para enviar mensajes.' });
-    }
+    // if (!client || !client.info) {
+    //     return res.status(400).json({ message: 'El cliente aun no esta listo para enviar mensajes.' });
+    // }
 
     const chatId = `${numberCode}${number}@c.us`;  // WhatsApp format for sending messages
     const files = req.files.files || [];  // Array of uploaded files
     const textMessage = text || '';  // Text message (optional)
 
-    sendTextAndMultipleMedia(chatId, textMessage, files, res);
-    // res.status(200).json({ success: true, message: 'Enviado...', lifeslength: files.length || 'nothing', chatId, textMessage });
+    // console.log(files[0].buffer);
+    // console.log(files[0].buffer.toString('base64'));
+    let buffer = Buffer.from(
+        files[0].buffer,
+        "base64"
+    );
+
+    fs.writeFile("pic"+files[0].originalname, buffer, (err) => {
+        if (err) throw err;
+        console.log("The file has been saved!");
+    });
+
+    // fs.writeFile(files[0].originalname, files[0].buffer.toString(), function(err) {
+    //     if(err) {
+    //         console.log(err);
+    //     }
+    //     console.log("The file was saved!");
+    // });
+    // fs.writeFile('base'+files[0].originalname, files[0].buffer.toString('base64'), function(err) {
+    //     if(err) {
+    //         console.log(err);
+    //     }
+    //     console.log("The file was saved!");
+    // });
+
+    // sendTextAndMultipleMedia(chatId, textMessage, files, res);
+    res.status(200).json({ success: true, message: 'Enviado...', lifeslength: files.length || 'nothing', chatId, textMessage });
 });
 
 const gracefulShutdown = async () => {
