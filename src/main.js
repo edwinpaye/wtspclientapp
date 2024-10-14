@@ -631,9 +631,38 @@ const gracefulShutdown = async () => {
     }
 };
 
-const PORT = 3000;
-app.listen(PORT, () => {
-    logger.info(`Server is running on PORT: ${PORT}`);
+// Response header for HTTP Strict Transport Security
+// const helmet = require('helmet');
+// app.use(helmet.hsts({ maxAge: 63072000, includeSubDomains: true }));
+
+// const https = require('https');
+
+// const PORT_HTTPS = process.env.PORT_HTTPS || 3000;
+
+// // Middleware to redirect HTTP to HTTPS
+// const redirectToHttps = (req, res, next) => {
+//     if (!req.secure) {
+//         return res.redirect(`https://${req.headers.host}${req.url}`);
+//     }
+//     next();
+// }
+
+// app.use(redirectToHttps);
+
+// const options = {
+//     key: fs.readFileSync(''),
+//     cert : fs.readFileSync('')
+// }
+
+// const httpsServ = https.createServer(options, app);
+// httpsServ.listen(PORT_HTTPS, () => {
+//     logger.info(`HTTPS Server is running on PORT: ${PORT_HTTPS}`);
+// })
+
+const PORT_HTTP = process.env.PORT_HTTP || 3000;
+
+app.listen(PORT_HTTP, () => {
+    logger.info(`HTTP Server is running on PORT: ${PORT_HTTP}`);
 });
 
 // Handle shutdown signals (e.g., Ctrl+C)
