@@ -31,6 +31,7 @@ dist/
 build/
 tmp/
 out/
+ssl/
 
 # MacOS system files
 .DS_Store
