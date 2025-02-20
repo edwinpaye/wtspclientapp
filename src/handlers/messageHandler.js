@@ -1,9 +1,9 @@
-// const aiMessageHandler = require("./aiMessageHandler");
+const aiMessageHandler = require("./aiMessageHandler");
 const menuMessageHandler = require("./menuMessageHandler");
 const greetingsHandler = require("./greetingsHandler");
 
 const handlers = {
-    // "!ai": aiMessageHandler,
+    "!ai": aiMessageHandler,
     "!menu": menuMessageHandler,
     "hi": greetingsHandler,
 };
@@ -14,8 +14,8 @@ const handlers = {
  */
 async function messageHandler(message) {
     const command = message.body.split(" ")[0];
-    console.log(command);
     await (handlers[command] || handlers["hi"])(message);
+    // return resp;
 }
 
 module.exports = messageHandler;

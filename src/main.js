@@ -36,20 +36,54 @@ const logger = winston.createLogger({
             format: 'YYYY-MM-DD hh:mm:ss.SSS A',
         }),
         align(),
-        printf((info) => `[${info.timestamp}] ${info.level}: ${info.message}`)
+        printf((info) => ` ${info.timestamp} [${info.level}]: ${info.message} `)
     ),
     transports: [
         new winston.transports.File({ filename: 'logs/whatsapp-web.log' }),
+        new winston.transports.File({ filename: 'errors.log', level: 'error' }),
         new winston.transports.Console()  // Still log to console
     ]
 });
 
 const app = express();
 app.use(express.json());
-app.use((err, req, res, next) => {
-    logger.error(`Unhandled Error, message: ${err.message}, Error: ${err.stack}`);
-    res.status(500).json({ message: 'Error interno.', error: err.message });
+app.use(express.urlencoded({ extended: true }));
+
+// Middleware to log each request
+app.use((req, res, next) => {
+    const start = Date.now();
+    const logRequest = () => {
+        const duration = Date.now() - start;
+        const logData = {
+            ip: req.ip,
+            userAgent: req.headers['user-agent'],
+            requestId: req.headers['x-request-id'] || 'N/A',
+            referer: req.headers.referer || 'N/A',  // Referer header (if available)
+            // originalUrl: req.originalUrl,         // The original request URL
+            query: req.query,                       // Parsed query parameters
+            body: req.body,                        // Parsed request body (if using body-parser)
+            protocol: req.protocol,                 // 'http' or 'https'
+            hostname: req.hostname,                 // The hostname derived from the Host HTTP header
+
+            // Response Information (more limited, as `finish` happens after most of it is set)
+            contentLength: res.getHeader('content-length') || 'N/A',  // Response content length
+            contentType: res.getHeader('content-type') || 'N/A',    // Response content type
+        };
+        logger.info(`[${req.method}] ${req.url} ${res.statusCode} - ${duration}ms - ${JSON.stringify(logData)}`);
+    };
+
+    res.on('finish', logRequest);  // Standard finish
+    // res.on('close', logRequest);   // Catch premature termination
+    next();
 });
+
+// app.get('/error', (req, res, next) => {
+//     try {
+//         throw new Error('Something went wrong in this route');
+//     } catch (err) {
+//         next(err);
+//     }
+// });
 
 // app.use(async (req, res, next) => {
 //     const authHeader = req.headers['authorization'];
@@ -247,8 +281,8 @@ const startClient = async () => {
 
             if (messageTimestampMs < oneMinuteAgo) return;
 
-            // if (!numeroEvaluacion.has(message.from)) return await messageHandler(message);
-            if (!numeroEvaluacion.has(message.from)) return;
+            if (!numeroEvaluacion.has(message.from)) return await messageHandler(message);
+            // if (!numeroEvaluacion.has(message.from)) return;
 
             const calificacion = getFirstNumber(message.body);
             logger.info('Calificacion de: ' + message.from + ' total: ' + calificacion);
@@ -525,6 +559,26 @@ app.post('/notificar-con-evaluacion', sendMessageLimiter, async (req, res) => {
     }
 });
 
+const { getAIResponse } = require('./clients/aiClient');
+
+// app.get('/chatbot/:prompt/posts/:postId', (req, res) => {
+//     const prompt = req.params.prompt;
+//     const postId = req.params.postId;
+//     const userAgent = req.headers['user-agent'];
+app.get('/chatbot', async (req, res) => {
+    const prompt = req.query.prompt;
+
+    if (!prompt) return res.status(400).json({ message: 'El prompt es requerido.' });
+
+    const resp = await getAIResponse(prompt);
+    const textResp = resp?.data?.candidates[0]?.content?.parts[0]?.text;
+    if (!textResp) {
+        logger.info('resp: ' + resp ? JSON.stringify(resp) : null);
+        textResp = 'Lo siento intente mas tarde por favor...';
+    }
+    return res.status(200).json({ success: true, response: textResp });
+});
+
 // app.get('/pause', (req, res) => {
 //     if (!client) {
 //         return res.status(400).send('Client WhatsApp no esta encendido.');
@@ -724,6 +778,12 @@ app.post('/send-text-with-multiple-media', sendMessageLimiter, upload.fields([
 
     sendTextAndMultipleMedia(chatId, textMessage, files, res);
     // res.status(200).json({ success: true, message: 'Enviado...', lifeslength: files.length || 'nothing', chatId, textMessage });
+});
+
+// Error-handling middleware
+app.use((err, req, res, next) => {
+    logger.error(`Unhandled Error, message: ${err.message}, Error: ${err.stack}`);
+    res.status(500).json({ message: 'Error interno.', error: err.message });
 });
 
 const gracefulShutdown = async () => {
