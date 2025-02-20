@@ -89,8 +89,23 @@ app.use((err, req, res, next) => {
 let client;
 
 const numberCode = '591';
+const messageHandler = require('./handlers/messageHandler');
+let numeroEvaluacion = new Map();
+const getFirstNumber = (str) => {
+    const match = str.match(/\d+/); // Matches one or more digits
+    if (match) {
+      return parseInt(match[0], 10); // Convert to number (base 10)
+    }
+    return null;
+}
+
+const ApiClient = require('./clients/apiClient');
+const apiClient = new ApiClient(process.env.API_CLIENT_SERVICE_URL ?? 'http://localhost:7012');
 
 const startClient = async () => {
+    let onMessageHandler = async (message) => {};
+    logger.info('onMessageHandler blank');
+    let myNumber = null;
 
     // try {
         // Create a new WhatsApp client
@@ -134,8 +149,46 @@ const startClient = async () => {
 
             try {
                 let myWhatsAppID = client.info.wid._serialized;
+                // const me = await client.getMe();
+                myNumber = client.info.wid.user;
                 await client.sendMessage(myWhatsAppID, 'Cliente WhatsApp Listo!');
-                logger.info(`Status notified to: ${myWhatsAppID}`);
+                logger.info(`Status notified to: ${myWhatsAppID} number: ${myNumber}`);
+                logger.info(`onMessageHandler was set.`);
+                // onMessageHandler = async (message) => {
+                //     if (!myNumber || message.from === myNumber) return;
+                //     const now = Date.now(); // Current time in milliseconds
+                //     const messageTimestampMs = message.timestamp * 1000; // Message timestamp in milliseconds
+                //     const oneMinuteAgo = now - 60000; // 1 minute ago in milliseconds (60 seconds * 1000 ms)
+
+                //     const date = new Date(messageTimestampMs);
+                //     const hours = date.getHours();
+                //     const minutes = date.getMinutes();
+                //     const seconds = date.getSeconds();
+                //     const formattedTime = `${hours}:${minutes}:${seconds}`;
+                //     logger.info(`[Message] From: ${message.from} - Sent at: ${formattedTime}`);
+
+                //     if (messageTimestampMs < oneMinuteAgo) return;
+
+                //     // if (!numeroEvaluacion.has(message.from)) return await messageHandler(message);
+                //     if (!numeroEvaluacion.has(message.from)) return;
+
+                //     const calificacion = getFirstNumber(message.body);
+                //     logger.info('Calificacion de: ' + message.from + ' total: ' + calificacion);
+                //     await client.sendMessage(message.from, 'Gracias por su atencion, su calificacion nos ayuda a mejorar la calidad de nuestros servicios.');
+
+                //     try {
+                //         const params = {  };
+                //         const body = { id: numeroEvaluacion.get(message.from), calificacion, comentario: message.body };
+                //         const resp = await apiClient.post('/schedules/calificacion', params, body);
+
+                //         if (resp.success) logger.info('Post to ApiClient was successfully... - status code: ' + resp.statusCode);
+                //         else console.error('Failed to create post: ', resp.statusCode , (resp.error ?? ''));
+                //     } catch (error) {
+                //         logger.error(error.message ?? 'An error when post to ApiClient');
+                //     }
+
+                //     numeroEvaluacion.delete(message.from);
+                // }
             } catch (err) {
                 logger.error(`Error sending message to yourself: ${err.message}`);
             }
@@ -178,6 +231,42 @@ const startClient = async () => {
         //         message.reply('pong');
         //     }
         // });
+        // client.on("message", async (message) => onMessageHandler(message));
+        client.on("message", async (message) => {
+            if (!myNumber || message.from === myNumber) return;
+            const now = Date.now(); // Current time in milliseconds
+            const messageTimestampMs = message.timestamp * 1000; // Message timestamp in milliseconds
+            const oneMinuteAgo = now - 60000; // 1 minute ago in milliseconds (60 seconds * 1000 ms)
+
+            const date = new Date(messageTimestampMs);
+            const hours = date.getHours();
+            const minutes = date.getMinutes();
+            const seconds = date.getSeconds();
+            const formattedTime = `${hours}:${minutes}:${seconds}`;
+            logger.info(`[Message] From: ${message.from} - Sent at: ${formattedTime}`);
+
+            if (messageTimestampMs < oneMinuteAgo) return;
+
+            // if (!numeroEvaluacion.has(message.from)) return await messageHandler(message);
+            if (!numeroEvaluacion.has(message.from)) return;
+
+            const calificacion = getFirstNumber(message.body);
+            logger.info('Calificacion de: ' + message.from + ' total: ' + calificacion);
+            await client.sendMessage(message.from, 'Gracias por su atencion, su calificacion nos ayuda a mejorar la calidad de nuestros servicios.');
+
+            try {
+                const params = {  };
+                const body = { id: numeroEvaluacion.get(message.from), calificacion, comentario: message.body };
+                const resp = await apiClient.post('/schedules/calificacion', params, body);
+
+                if (resp.success) logger.info('Post to ApiClient was successfully... - status code: ' + resp.statusCode);
+                else console.error('Failed to make post: ', resp.statusCode , (resp.error ?? ''));
+            } catch (error) {
+                logger.error(error.message ?? 'An error when post to ApiClient');
+            }
+
+            numeroEvaluacion.delete(message.from);
+        });
 
         // Error handling
         client.on('auth_failure', (msg) => {
@@ -413,6 +502,29 @@ app.post('/send-text', sendMessageLimiter, async (req, res) => {
     }
 });
 
+app.post('/notificar-con-evaluacion', sendMessageLimiter, async (req, res) => {
+    const { number, text, scheduleId } = req.body;
+
+    if (!number || !text)
+        return res.status(400).json({ message: 'Numero y mensaje son requeridos.' });
+
+    if (!client || !client.info)
+        return res.status(400).json({ message: 'El cliente aun no esta listo para enviar mensajes.' });
+
+    try {
+        const numero = `${numberCode}${number}@c.us`;
+        numeroEvaluacion.set(numero, scheduleId);
+
+        await client.sendMessage(numero, text);
+        await client.sendMessage(numero, 'Puede hacer una evaluacion calificando del 1 al 10 sobre el servicio.');
+        logger.info("Message sent successfully...");
+        res.status(200).json({ success: true, message: 'Enviado...' });
+    } catch (err) {
+        logger.error(`Error sending message: ${err}`);
+        res.status(500).json({ message: 'Error al enviar.', error: err.message });
+    }
+});
+
 // app.get('/pause', (req, res) => {
 //     if (!client) {
 //         return res.status(400).send('Client WhatsApp no esta encendido.');
@@ -635,50 +747,47 @@ const gracefulShutdown = async () => {
 // const helmet = require('helmet');
 // app.use(helmet.hsts({ maxAge: 63072000, includeSubDomains: true }));
 
-const https = require('https');
+// const https = require('https');
+// const PORT_HTTPS = process.env.PORT_HTTPS || 3001;
 
-const PORT_HTTPS = process.env.PORT_HTTPS || 3000;
+// // Middleware to redirect HTTP to HTTPS
+// const redirectToHttps = (req, res, next) => {
+//     if (!req.secure) {
+//         logger.info(`redirected from http to: https://${req.headers.host}${req.url}`);
+//         return res.redirect(301, `https://localhost:${PORT_HTTPS}${req.url}`);
+//     }
+//     next();
+// }
 
-// Middleware to redirect HTTP to HTTPS
-const redirectToHttps = (req, res, next) => {
-    if (!req.secure) {
-        logger.info(`redirected from http to: https://${req.headers.host}${req.url}`);
-        return res.redirect(301, `https://localhost:${PORT_HTTPS}${req.url}`);
-    }
-    next();
-}
+// app.use(redirectToHttps);
 
-app.use(redirectToHttps);
+// // SSL cert files
+// const options = {
+//     key: fs.readFileSync('ssl/cert.key'),
+//     cert : fs.readFileSync('ssl/cert.crt')
+// }
 
-// SSL cert files
-const options = {
-    key: fs.readFileSync('ssl/cert.key'),
-    cert : fs.readFileSync('ssl/cert.crt')
-}
+// const httpsServ = https.createServer(options, app);
+// httpsServ.listen(PORT_HTTPS, () => {
+//     logger.info(`HTTPS Server is running on PORT: ${PORT_HTTPS}`);
+// })
 
-const httpsServ = https.createServer(options, app);
-httpsServ.listen(PORT_HTTPS, () => {
-    logger.info(`HTTPS Server is running on PORT: ${PORT_HTTPS}`);
-})
+const PORT_HTTP = process.env.PORT_HTTP || 3000;
+app.listen(PORT_HTTP, () => {
+    logger.info(`HTTP Server is running on PORT: ${PORT_HTTP}`);
+});
 
-// const PORT_HTTP = process.env.PORT_HTTP || 3001;
-
-// app.listen(PORT_HTTP, () => {
-//     logger.info(`HTTP Server is running on PORT: ${PORT_HTTP}`);
-// });
 // const http = require('http');
 // http.createServer((req, res) => {
 //     // res.writeHead(301, { Location: `https://${req.headers.host}${req.url}` });
 //     res.writeHead(301, { Location: `https://localhost:${PORT_HTTPS}${req.url}` });
 //     res.end();
 // }).listen(PORT_HTTP);
-// Handle shutdown signals (e.g., Ctrl+C)
-// process.on('SIGINT', gracefulShutdown);
 
+// Handle shutdown signals (e.g., Ctrl+C)
 process.on('SIGINT', async () => {
     await gracefulShutdown();
 });
-// process.on('SIGTERM', gracefulShutdown);
 process.on('SIGTERM', async () => {
     await gracefulShutdown();
 });
