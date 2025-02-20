@@ -1,6 +1,4 @@
-# Step 1: Base Image
 FROM node:latest
-# FROM node:18-alpine
 
 RUN apt-get update \
   && apt-get install -y \
@@ -43,26 +41,3 @@ RUN apt-get update \
   lsb-release \
   xdg-utils \
   && rm -rf /var/lib/apt/lists/*
-
-
-# Step 2: Set the working directory inside the container
-WORKDIR /usr/src/app
-
-# Step 3: Copy the package.json and package-lock.json files
-COPY package.json ./
-
-# Step 4: Install dependencies
-RUN npm install
-
-# Step 5: Copy the source code into the container
-COPY ./src ./src/
-COPY ./ssl/* ./ssl/
-
-# Step 6: Expose the application port
-ARG PORT=3000  # Default value
-ENV PORT=${PORT}
-
-EXPOSE ${PORT}
-
-# Step 7: Start the application
-CMD ["node", "./src/main.js"]
