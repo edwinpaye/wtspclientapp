@@ -41,7 +41,7 @@ class ApiClient {
             );
 
             const statusCode = response.status;
-            if (statusCode > 299 && statusCode < 200) {
+            if (statusCode > 299 || statusCode < 200) {
                 return this.handleNonOkResponse(response);
             }
 
@@ -63,15 +63,16 @@ class ApiClient {
      * @returns The fetch response, or rejects with an error after max retries.
      */
     async fetchWithTimeout(url, init, timeout, retries = this.defaultRetries) {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        // const controller = new AbortController();
+        // const timeoutId = setTimeout(() => controller.abort(), timeout);
 
         try {
-            const response = await fetch(url, { ...init, signal: controller.signal });
-            clearTimeout(timeoutId); // Clear timeout if the request completes before timing out.
+            // const response = await fetch(url, { ...init, signal: controller.signal });
+            const response = await fetch(url, { ...init });
+            // clearTimeout(timeoutId); // Clear timeout if the request completes before timing out.
             return response;
         } catch (error) {
-            clearTimeout(timeoutId);
+            // clearTimeout(timeoutId);
             if (retries > 0 && error.name !== 'AbortError') {
                 console.log(`Retrying fetch, ${retries} retries remaining`);
                 await new Promise(resolve => setTimeout(resolve, this.getRetryDelay(this.defaultRetries - retries + 1))); // Exponential backoff

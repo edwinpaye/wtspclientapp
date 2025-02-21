@@ -134,11 +134,9 @@ const getFirstNumber = (str) => {
 }
 
 const ApiClient = require('./clients/apiClient');
-const apiClient = new ApiClient(process.env.API_CLIENT_SERVICE_URL ?? 'http://localhost:7012');
+const apiClient = new ApiClient(process.env.API_CLIENT_SERVICE_URL ?? 'http://localhost:7012', { timeout: 10000 });
 
 const startClient = async () => {
-    let onMessageHandler = async (message) => {};
-    logger.info('onMessageHandler blank');
     let myNumber = null;
 
     // try {
@@ -187,42 +185,6 @@ const startClient = async () => {
                 myNumber = client.info.wid.user;
                 await client.sendMessage(myWhatsAppID, 'Cliente WhatsApp Listo!');
                 logger.info(`Status notified to: ${myWhatsAppID} number: ${myNumber}`);
-                logger.info(`onMessageHandler was set.`);
-                // onMessageHandler = async (message) => {
-                //     if (!myNumber || message.from === myNumber) return;
-                //     const now = Date.now(); // Current time in milliseconds
-                //     const messageTimestampMs = message.timestamp * 1000; // Message timestamp in milliseconds
-                //     const oneMinuteAgo = now - 60000; // 1 minute ago in milliseconds (60 seconds * 1000 ms)
-
-                //     const date = new Date(messageTimestampMs);
-                //     const hours = date.getHours();
-                //     const minutes = date.getMinutes();
-                //     const seconds = date.getSeconds();
-                //     const formattedTime = `${hours}:${minutes}:${seconds}`;
-                //     logger.info(`[Message] From: ${message.from} - Sent at: ${formattedTime}`);
-
-                //     if (messageTimestampMs < oneMinuteAgo) return;
-
-                //     // if (!numeroEvaluacion.has(message.from)) return await messageHandler(message);
-                //     if (!numeroEvaluacion.has(message.from)) return;
-
-                //     const calificacion = getFirstNumber(message.body);
-                //     logger.info('Calificacion de: ' + message.from + ' total: ' + calificacion);
-                //     await client.sendMessage(message.from, 'Gracias por su atencion, su calificacion nos ayuda a mejorar la calidad de nuestros servicios.');
-
-                //     try {
-                //         const params = {  };
-                //         const body = { id: numeroEvaluacion.get(message.from), calificacion, comentario: message.body };
-                //         const resp = await apiClient.post('/schedules/calificacion', params, body);
-
-                //         if (resp.success) logger.info('Post to ApiClient was successfully... - status code: ' + resp.statusCode);
-                //         else console.error('Failed to create post: ', resp.statusCode , (resp.error ?? ''));
-                //     } catch (error) {
-                //         logger.error(error.message ?? 'An error when post to ApiClient');
-                //     }
-
-                //     numeroEvaluacion.delete(message.from);
-                // }
             } catch (err) {
                 logger.error(`Error sending message to yourself: ${err.message}`);
             }
@@ -265,7 +227,6 @@ const startClient = async () => {
         //         message.reply('pong');
         //     }
         // });
-        // client.on("message", async (message) => onMessageHandler(message));
         client.on("message", async (message) => {
             if (!myNumber || message.from === myNumber) return;
             const now = Date.now(); // Current time in milliseconds
@@ -286,15 +247,15 @@ const startClient = async () => {
 
             const calificacion = getFirstNumber(message.body);
             logger.info('Calificacion de: ' + message.from + ' total: ' + calificacion);
-            await client.sendMessage(message.from, 'Gracias por su atencion, su calificacion nos ayuda a mejorar la calidad de nuestros servicios.');
-
+            
             try {
                 const params = {  };
                 const body = { id: numeroEvaluacion.get(message.from), calificacion, comentario: message.body };
                 const resp = await apiClient.post('/schedules/calificacion', params, body);
-
+                
                 if (resp.success) logger.info('Post to ApiClient was successfully... - status code: ' + resp.statusCode);
                 else console.error('Failed to make post: ', resp.statusCode , (resp.error ?? ''));
+                await client.sendMessage(message.from, 'Gracias por su atencion, su calificacion nos ayuda a mejorar la calidad de nuestros servicios.');
             } catch (error) {
                 logger.error(error.message ?? 'An error when post to ApiClient');
             }
