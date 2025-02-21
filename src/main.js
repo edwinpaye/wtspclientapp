@@ -793,7 +793,7 @@ const gracefulShutdown = async () => {
 //     logger.info(`HTTPS Server is running on PORT: ${PORT_HTTPS}`);
 // })
 
-const PORT = process.env.PORT_HTTP ?? 3000;
+const PORT = process.env.PORT ?? 3000;
 app.listen(PORT, () => {
     logger.info(`HTTP Server is running on PORT: ${PORT}`);
 });
