@@ -1,10 +1,8 @@
 #!/bin/bash  
 
-# export $(cat .env | xargs)
-# docker run -e PORT -e TOKEN_VALIDATION_URL -p $PORT:3000 whatsapp-web
-
 # --- Configuration ---
 VAR_FILE="$1"  # The first argument passed to the script
+CONTAINER_NAME="${2:-chat-bot}"
 
 # --- Error Handling ---
 
@@ -39,9 +37,9 @@ echo "Variables sourced successfully."
 
 echo "Running Docker Container..."
 
-# docker run -e PORT -e AI_API_KEY -p $PORT:$PORT --name chat-bot chat-bot
+# docker run -e PORT -e AI_API_KEY -p $PORT:$PORT --name $CONTAINER_NAME chat-bot
 
-docker run -p $PORT:$PORT --env-file "$VAR_FILE" --name chat-bot chat-bot
+docker run -p $PORT:$PORT --env-file "$VAR_FILE" --name $CONTAINER_NAME chat-bot
 
 exit 0
 

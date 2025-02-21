@@ -832,9 +832,9 @@ const gracefulShutdown = async () => {
 //     logger.info(`HTTPS Server is running on PORT: ${PORT_HTTPS}`);
 // })
 
-const PORT_HTTP = process.env.PORT_HTTP || 3000;
-app.listen(PORT_HTTP, () => {
-    logger.info(`HTTP Server is running on PORT: ${PORT_HTTP}`);
+const PORT = process.env.PORT_HTTP ?? 3000;
+app.listen(PORT, () => {
+    logger.info(`HTTP Server is running on PORT: ${PORT}`);
 });
 
 // const http = require('http');

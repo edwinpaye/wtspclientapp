@@ -20,7 +20,7 @@ build_image() {
 
   echo "Building Docker image: $image_name (using $dockerfile)"
 
-  docker build -f "$dockerfile" -t "$image_name" .
+  docker build -f docker/"$dockerfile" -t "$image_name" .
 
   if [ $? -ne 0 ]; then
     echo "ERROR: Failed to build Docker image: $image_name"
