@@ -68,11 +68,14 @@ class ApiClient {
 
         try {
             // const response = await fetch(url, { ...init, signal: controller.signal });
+            
+            console.log("request to: " + url + " with: " + JSON.stringify(init));
             const response = await fetch(url, { ...init });
             // clearTimeout(timeoutId); // Clear timeout if the request completes before timing out.
             return response;
         } catch (error) {
             // clearTimeout(timeoutId);
+            console.log("error message: " + error.message);
             if (retries > 0 && error.name !== 'AbortError') {
                 console.log(`Retrying fetch, ${retries} retries remaining`);
                 await new Promise(resolve => setTimeout(resolve, this.getRetryDelay(this.defaultRetries - retries + 1))); // Exponential backoff
