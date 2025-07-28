@@ -136,12 +136,12 @@ const getFirstNumber = (str) => {
 const ApiClient = require('./clients/apiClient');
 const apiClient = new ApiClient(process.env.API_CLIENT_SERVICE_URL ?? 'http://localhost:7012', { timeout: 10000 });
 
-const startClient = async () => {
+const startClient = async (customClient) => {
     let myNumber = null;
 
     // try {
         // Create a new WhatsApp client
-        client = new Client({
+        client = customClient ? customClient : new Client({
             authStrategy: new LocalAuth(),
             puppeteer: {
                 // headless: true,
@@ -240,27 +240,27 @@ const startClient = async () => {
             const formattedTime = `${hours}:${minutes}:${seconds}`;
             logger.info(`[Message] From: ${message.from} - Sent at: ${formattedTime}`);
 
-            if (messageTimestampMs < oneMinuteAgo) return;
+            // if (messageTimestampMs < oneMinuteAgo) return;
 
-            if (!numeroEvaluacion.has(message.from)) return await messageHandler(message);
+            // if (!numeroEvaluacion.has(message.from)) return await messageHandler(message);
             // if (!numeroEvaluacion.has(message.from)) return;
 
-            const calificacion = getFirstNumber(message.body);
-            logger.info('Calificacion de: ' + message.from + ' total: ' + calificacion);
+            // const calificacion = getFirstNumber(message.body);
+            // logger.info('Calificacion de: ' + message.from + ' total: ' + calificacion);
             
-            try {
-                const params = {  };
-                const body = { id: numeroEvaluacion.get(message.from), calificacion, comentario: message.body };
-                const resp = await apiClient.post('/schedules/calificacion', params, body);
+            // try {
+            //     const params = {  };
+            //     const body = { id: numeroEvaluacion.get(message.from), calificacion, comentario: message.body };
+            //     const resp = await apiClient.post('/schedules/calificacion', params, body);
                 
-                if (resp.success) logger.info('Post to ApiClient was successfully... - status code: ' + resp.statusCode);
-                else console.error('Failed to make post: ', resp.statusCode , (resp.error ?? ''));
-                await client.sendMessage(message.from, 'Gracias por su atencion, su calificacion nos ayuda a mejorar la calidad de nuestros servicios.');
-            } catch (error) {
-                logger.error(error.message ?? 'An error when post to ApiClient');
-            }
+            //     if (resp.success) logger.info('Post to ApiClient was successfully... - status code: ' + resp.statusCode);
+            //     else console.error('Failed to make post: ', resp.statusCode , (resp.error ?? ''));
+            //     await client.sendMessage(message.from, 'Gracias por su atencion, su calificacion nos ayuda a mejorar la calidad de nuestros servicios.');
+            // } catch (error) {
+            //     logger.error(error.message ?? 'An error when post to ApiClient');
+            // }
 
-            numeroEvaluacion.delete(message.from);
+            // numeroEvaluacion.delete(message.from);
         });
 
         // Error handling
@@ -269,7 +269,7 @@ const startClient = async () => {
         });
 
         // Start the client
-        await client.initialize();
+        if (!customClient) await client.initialize();
     // } catch (err) {
     //     logger.error(`Error initializing WhatsApp client: ${err.message}`);
     // }
@@ -290,6 +290,41 @@ app.get('/start-client', (req, res) => {
         return res.status(200).send({ message: 'Encendiendo el Cliente WhatsApp...' });
     } catch (err) {
         logger.error(`Error initializing WhatsApp client: ${err.message}`);
+    }
+});
+
+// Endpoint to start the WhatsApp client by phone nomber query param
+app.get('/log-in', async (req, res) => {
+    if (client && client.info && client.info.wid) {
+        logger.info("Re-encendido del Cliente WhatsApp capturado sin efecto, el cliente ya se encuentra encendido.");
+        return res.status(200).send({ message: 'EL Cliente WhatsApp esta Iniciado Anteriormente.' });
+    }
+    const numberParam = req.query.numero;
+
+    if (numberParam) {
+        logger.info(`Provided number: ${numberParam}.`);
+    } else {
+        return res.status(401).json({ message: 'Por favor envie un numero valido.' });
+    }
+
+    try {
+
+        if (!client) {
+            logger.info('WhatsApp client is getting started...');
+            await startClient();
+        }
+        logger.info('WhatsApp client: ' + JSON.stringify(client, null, 2));
+        // if (client && client.info) {
+        //     return res.status(200).send({ message: 'Cliente WhatsApp Encendido...' });
+        // } else {
+            logger.info('WhatsApp client is getting log-in...');
+            let result = await client.requestPairingCode(numberCode + numberParam, true);
+
+            return res.status(200).send({ message: 'Ingrese el siguiente codigo a la aplicacion de WhatsApp: ' + result });
+        // }
+    } catch (err) {
+        logger.error(`Error initializing WhatsApp client: ${err.message}`);
+        res.status(500).json({ message: 'Error al iniciar el cliente WhatsApp.', error: err.message });
     }
 });
 
